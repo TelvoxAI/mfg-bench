@@ -20,9 +20,11 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 
 | When | Step | Command | Model | Result |
 | --- | --- | --- | --- | --- |
-| 2026-09-22 19:47–19:50 | 1 company overview | `python -m src.scripts.data_gen_stage_1_generate_clean_data.step_1_generate_company_overview` | gpt-5.4 | `generated_data/company_overview.md`, 1,339 words. Company = **Brightwater Packaging Systems, Inc.** (Dayton OH + Querétaro; brightwaterpkg.com). 2 LLM turns. |
-| 2026-09-22 19:51–19:54 | 2 initiatives | `...step_2_generate_initiatives` | gpt-5.4 | `generated_data/initiatives.md`, 2,537 words, 6 initiatives, window 2025-04-01 → 2026-09-30, ERP go-live 2026-01-04. 2 LLM turns. |
-| 2026-09-22 19:56– | 3 employee directory | `...step_3_generate_employee_directory` | gpt-5.4 | 15 departments, ~345 people, 12 cross-project people flagged in bios |
+| 2026-09-22 18:27–18:29 | 1 company overview | `python -m src.scripts.data_gen_stage_1_generate_clean_data.step_1_generate_company_overview` | gpt-5.4 | `generated_data/company_overview.md`, 1,339 words. Company = **Brightwater Packaging Systems, Inc.** (Dayton OH + Querétaro; brightwaterpkg.com). 2 LLM turns. |
+| 2026-09-22 18:30–18:32 | 2 initiatives | `...step_2_generate_initiatives` | gpt-5.4 | `generated_data/initiatives.md`, 2,537 words, 6 initiatives, window 2025-04-01 → 2026-09-30, ERP go-live 2026-01-04. 2 LLM turns. |
+| 2026-09-22 18:33–18:38 | 3 employee directory | `...step_3_generate_employee_directory` | gpt-5.4 | `generated_data/employee_directory.yaml`: 345 people in 15 departments, every manager present, 12 "cross-project" bios, all emails @brightwaterpkg.com. Validation passed. 3 LLM turns. |
+| 2026-09-22 18:45 | 4 source structure | tree created by script from the Part B table (`gold/scaffolding_logs/step4_mailboxes.txt` lists the 114 mailbox owners), then `...step_4_generate_source_structure` answered `n` to record `source_tree.txt` | — | 6 sources, 171 directories: outlook/ (114 personal + 5 shared), teams/ (26 channels), sharepoint/ (13), erp/ (7), hubspot/ (4), quality/ (2) |
+| 2026-09-22 18:50 | 5 agents.md | 8 files authored by hand (6 top-level + outlook/shared + sharepoint/meeting-notes), then `...step_5_generate_agents_md` answered `n` to record stats | — | Every file states: JSON fields, a date field in the 2025-04-01 → 2026-09-30 window, the source's alias convention, target count (27,000 / 13,200 / 6,000 / 9,000 / 3,000 / 1,800 = 60,000) |
 
 ## Costs
 
