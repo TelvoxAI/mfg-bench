@@ -371,6 +371,26 @@ def generate_new_file_contents(
 # =============================================================================
 
 
+def inherit_entity_refs(old_full_path: str, new_full_path: str) -> None:
+    """Copy `_entity_refs` from the original to the duplicate, keeping only the forms
+    that still appear verbatim in the duplicate."""
+    from src.entities.master import REFS_KEY, SEP, _document_text
+    from src.utils.file_io import load_json_file, write_json_file
+
+    try:
+        old = load_json_file(old_full_path)
+        new = load_json_file(new_full_path)
+    except Exception:
+        return
+    refs = old.get(REFS_KEY)
+    if not isinstance(refs, list):
+        return
+    text = _document_text(new)
+    kept = [r for r in refs if SEP in str(r) and str(r).split(SEP, 1)[1] in text]
+    new[REFS_KEY] = kept
+    write_json_file(new_full_path, new)
+
+
 def generate_near_duplicate(
     file_path: str,
     source_tree: str,
@@ -512,6 +532,11 @@ def main() -> None:
 
             old_uuid = get_dataset_doc_uuid(old_full_path)
             new_uuid = get_dataset_doc_uuid(new_full_path)
+
+            # Entity refs (IND-982 C1): the duplicate inherits the original's refs; the
+            # ones whose surface form the rewrite dropped are pruned by
+            # `validate_entity_refs --fix` (the original is never shown the ids).
+            inherit_entity_refs(old_full_path, new_full_path)
 
             # Append to generation cache
             duplications_cache.append(

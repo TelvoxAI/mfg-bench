@@ -23,7 +23,13 @@ def strip_metadata_fields(document: dict[str, Any]) -> dict[str, Any]:
     This is intended for preparing document content before sending it to an LLM
     so that metadata like ``dataset_doc_uuid`` never leaks into prompts.
     """
-    return {k: v for k, v in document.items() if k not in METADATA_FIELDS}
+    # `_`-prefixed keys are generation annotations (`_entity_refs`, IND-982 C1) and
+    # carry canonical ids — they must never reach a prompt either.
+    return {
+        k: v
+        for k, v in document.items()
+        if k not in METADATA_FIELDS and not str(k).startswith("_")
+    }
 
 
 def load_file_without_metadata(file_path: str) -> str:
