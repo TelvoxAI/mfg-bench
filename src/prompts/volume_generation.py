@@ -137,6 +137,8 @@ Most source types will be broken up into spaces, folders, or some other hierarch
 ## {AGENTS_MD_FILE} file paths and contents
 {{agents_md_contents}}
 
+{{entity_shortlist}}
+
 ## Existing docs for this topic
 Note, the new document should be as different to the existing documents as possible. The file name and the contents should be unique and loosely aligned with the topic.
 ```

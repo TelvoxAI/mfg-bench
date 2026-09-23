@@ -30,6 +30,8 @@ You must output this generated document and associated metadata as a single .jso
 The following are the contents of the {AGENTS_MD_FILE} files for the directories along the path. These give instructions on the contents and metadata for the documents in the directory.
 {{agents_md_context}}
 
+{{entity_shortlist}}
+
 ## Available Tools
 - {READ_TOOL}: You can use this to read another file from the project but only do this if there is a clear and direct dependency for generating the current file. \
 For most projects, you should not need to read any files. Read at most 2 other files. Note that the files you try to read may not exist yet.

@@ -59,6 +59,13 @@ from src.utils import (
     process_written_document,
 )
 from src.utils.file_io import load_json_file, write_json_file
+from src.entities.master import (
+    apply_entity_refs,
+    build_shortlist,
+    leaks,
+    load_master,
+    log_entity_refs,
+)
 from src.utils.statistics import update_statistics
 
 STEP_OVERVIEW = """\
@@ -1226,6 +1233,15 @@ def generate_single_document(
         existing_docs = get_existing_docs_for_topic(source_type, topic_path_parts)
     existing_docs_str = "\n".join(existing_docs) if existing_docs else "(none yet)"
 
+    # Entity shortlist (C1): a different, coherent 20-30 entity slice per document,
+    # seeded by source + topic + how many docs the topic already has.
+    master = load_master()
+    shortlist = None
+    if master is not None:
+        shortlist = build_shortlist(
+            master, source_type, f"{topic_and_subtopics}|{len(existing_docs)}"
+        )
+
     # Build the system prompt
     system_prompt = DOCUMENT_GENERATION_PROMPT.format(
         company_overview=company_overview,
@@ -1233,6 +1249,7 @@ def generate_single_document(
         agents_md_contents=agents_md_contents,
         existing_docs=existing_docs_str,
         topic_and_subtopics=topic_and_subtopics,
+        entity_shortlist=shortlist.prompt_block(master) if shortlist and master else "",
     )
 
     # Build the user prompt
@@ -1287,6 +1304,17 @@ def generate_single_document(
             # Note: JSON validation already happened at write time
             rel_path = write_tool.written_paths[0]
             abs_path = default_resolver.to_absolute(rel_path)
+
+            # Entity refs (C1): local keys → canonical ids, non-verbatim forms dropped
+            if shortlist is not None:
+                doc = load_json_file(abs_path)
+                doc, report = apply_entity_refs(doc, shortlist)
+                log_entity_refs(rel_path, report)
+                if leaks(doc):
+                    os.remove(abs_path)
+                    continue
+                write_json_file(abs_path, doc)
+
             success, error = process_written_document(abs_path)
 
             if not success:
