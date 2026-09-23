@@ -56,12 +56,24 @@ class McpToolClient:
         return self._tools
 
     def call(self, name: str, args: dict[str, Any]) -> tuple[str, bool, float]:
-        """(result text, is_error, seconds)."""
+        """(result text, is_error, seconds).
+
+        A streamable-HTTP session does not live forever: the server (Cloud Run behind the
+        Indax MCP) closes it after a while, and every later call on it fails with
+        `McpError: Connection closed`. Found on 2026-09-23: from the 30th question of a
+        run onward every Indax tool call failed, and the model answered "connection
+        error" 74 times. A real client reconnects; so does this one — once per call, and
+        the reconnect is counted so the latency log can show it."""
         t0 = time.time()
         try:
             res = self._run(self._session.call_tool(name, args))
         except Exception as e:  # the tool loop must survive a broken tool call
-            return f"tool error: {type(e).__name__}: {e}", True, time.time() - t0
+            if not self._reconnect():
+                return f"tool error: {type(e).__name__}: {e}", True, time.time() - t0
+            try:
+                res = self._run(self._session.call_tool(name, args))
+            except Exception as e2:
+                return f"tool error: {type(e2).__name__}: {e2}", True, time.time() - t0
         dt = time.time() - t0
         sc = getattr(res, "structured_content", None)
         if sc:
@@ -69,6 +81,21 @@ class McpToolClient:
         else:
             text = "\n".join(getattr(c, "text", "") for c in (res.content or []) if getattr(c, "text", ""))
         return text, bool(getattr(res, "is_error", False)), dt
+
+    def _reconnect(self) -> bool:
+        """Drop the dead session and open a fresh one on the same loop."""
+        self.reconnects = getattr(self, "reconnects", 0) + 1
+        try:
+            if self._stack is not None:
+                try:
+                    self._run(self._stack.aclose())
+                except Exception:
+                    pass
+            self._session = None
+            self._run(self._connect())
+            return True
+        except Exception:
+            return False
 
     def close(self) -> None:
         if self._stack is not None:
