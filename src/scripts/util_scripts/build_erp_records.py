@@ -202,6 +202,7 @@ def main() -> None:
             "status": "obsolete" if a.get("obsolete") == "yes" else "active",
             "item_number": a["item_number"],
             "revision": a["revision"],
+            "item": f"{a['item_number']} rev {a['revision']}",
             "description": a["description"],
             "supplier_part_number": a.get("previous_supplier_part_number")
             or a["supplier_part_number"],
@@ -238,6 +239,7 @@ def main() -> None:
                 **doc,
                 "record_id": f"{a['item_number']}-{nr}",
                 "revision": nr,
+                "item": f"{a['item_number']} rev {nr}",
                 "record_date": a["supersession_effective"],
                 "system": (
                     "new_erp"
