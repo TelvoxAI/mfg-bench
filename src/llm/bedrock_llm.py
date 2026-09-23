@@ -27,6 +27,31 @@ CHEAP_LLM_MODEL_NAME = os.environ.get("CHEAP_LLM_MODEL_NAME", "openai.gpt-oss-20
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 
 
+USAGE_LOG = os.environ.get(
+    "BEDROCK_USAGE_LOG", os.path.join("generation_cache", "bedrock_usage.jsonl")
+)
+_USAGE_LOCK = __import__("threading").Lock()
+
+
+def _record_usage(model: str, usage: dict) -> None:
+    try:
+        line = json.dumps(
+            {
+                "ts": __import__("time").time(),
+                "model": model,
+                "input_tokens": int(usage.get("inputTokens", 0) or 0),
+                "output_tokens": int(usage.get("outputTokens", 0) or 0),
+                "cache_read_tokens": int(usage.get("cacheReadInputTokens", 0) or 0),
+            }
+        )
+        with _USAGE_LOCK:
+            os.makedirs(os.path.dirname(USAGE_LOG) or ".", exist_ok=True)
+            with open(USAGE_LOG, "a") as f:
+                f.write(line + "\n")
+    except OSError:
+        pass
+
+
 class BedrockLLM(LLMInterface):
     """Streaming Converse API client with tool use."""
 
@@ -45,7 +70,9 @@ class BedrockLLM(LLMInterface):
         self.tools = self._convert_tools(tools) if tools else None
         self.quiet = quiet
         self.reasoning_level = reasoning_level
-        self.client = client or boto3.client("bedrock-runtime", region_name=region or AWS_REGION)
+        self.client = client or boto3.client(
+            "bedrock-runtime", region_name=region or AWS_REGION
+        )
 
     @staticmethod
     def _convert_tools(tools: list[dict]) -> list[dict]:
@@ -53,11 +80,19 @@ class BedrockLLM(LLMInterface):
         out = []
         for t in tools:
             if t.get("type") == "function":
-                out.append({"toolSpec": {
-                    "name": t["name"],
-                    "description": t.get("description", "") or t["name"],
-                    "inputSchema": {"json": t.get("parameters", {"type": "object", "properties": {}})},
-                }})
+                out.append(
+                    {
+                        "toolSpec": {
+                            "name": t["name"],
+                            "description": t.get("description", "") or t["name"],
+                            "inputSchema": {
+                                "json": t.get(
+                                    "parameters", {"type": "object", "properties": {}}
+                                )
+                            },
+                        }
+                    }
+                )
         return out
 
     @staticmethod
@@ -81,10 +116,26 @@ class BedrockLLM(LLMInterface):
                 if m.content:
                     push("assistant", {"text": m.content})
             elif m.role == "tool_call" and m.tool_call:
-                push("assistant", {"toolUse": {"toolUseId": m.tool_call.call_id, "name": m.tool_call.name,
-                                               "input": m.tool_call.args}})
+                push(
+                    "assistant",
+                    {
+                        "toolUse": {
+                            "toolUseId": m.tool_call.call_id,
+                            "name": m.tool_call.name,
+                            "input": m.tool_call.args,
+                        }
+                    },
+                )
             elif m.role == "tool_result" and m.call_id:
-                push("user", {"toolResult": {"toolUseId": m.call_id, "content": [{"text": m.content or "(empty)"}]}})
+                push(
+                    "user",
+                    {
+                        "toolResult": {
+                            "toolUseId": m.call_id,
+                            "content": [{"text": m.content or "(empty)"}],
+                        }
+                    },
+                )
         if not out and system:
             out.append({"role": "user", "content": [{"text": system[0]["text"]}]})
             system = []
@@ -95,12 +146,17 @@ class BedrockLLM(LLMInterface):
             return {"reasoning_effort": self.reasoning_level}
         return None
 
-    def generate(self, messages: list[Message]) -> Generator[str | ToolCall, None, None]:
+    def generate(
+        self, messages: list[Message]
+    ) -> Generator[str | ToolCall, None, None]:
         if not self.quiet:
             print("Waiting on LLM...", flush=True)
         system, conv = self._build_messages(messages)
-        kwargs: dict[str, Any] = {"modelId": self.model, "messages": conv,
-                                  "inferenceConfig": {"maxTokens": 16000, "temperature": 1.0}}
+        kwargs: dict[str, Any] = {
+            "modelId": self.model,
+            "messages": conv,
+            "inferenceConfig": {"maxTokens": 16000, "temperature": 1.0},
+        }
         if system:
             kwargs["system"] = system
         if self.tools:
@@ -136,9 +192,15 @@ class BedrockLLM(LLMInterface):
                     args = json.loads(current["input"]) if current["input"] else {}
                 except json.JSONDecodeError:
                     args = {}
-                tool_calls.append(ToolCall(name=current["name"], args=args, call_id=current["id"]))
+                tool_calls.append(
+                    ToolCall(name=current["name"], args=args, call_id=current["id"])
+                )
                 current = None
-            elif "messageStop" in event:
-                break
+            elif "metadata" in event:
+                # token accounting: one line per call, so cost per document can be
+                # computed from generation_cache/bedrock_usage.jsonl (IND-982 RUNLOG)
+                _record_usage(self.model, event["metadata"].get("usage") or {})
+            # keep reading until the stream is exhausted: breaking early leaves the
+            # urllib3 generator to be closed by the GC with a noisy ValueError
         for tc in tool_calls:
             yield tc

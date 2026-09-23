@@ -64,6 +64,14 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 | 2026-09-22 21:05 | 6 phases 3–5 on the 6 enriched | `n` path | gpt-5.4 + gpt-5-mini | C2 verified: 40 entities per project (customers, suppliers, people, POs, SOs, quotes, sites, parts). Finding: the planner names invented counterparties ("Harbor Peak Pharma") while C2 picks master ones → added a rename pass (cheap model maps invented → chosen, applied to name/description/file descriptions; recorded under `entity_renames`). Entities cleared on the 6 to re-run with it. |
 | 2026-09-22 21:12–21:58 | 6 phase 2 resume (54 left) | `y`, `--max-parallelization 12` | gpt-5.4 | **STOPPED: OpenAI org out of credits** (`You have no credits remaining`) after 37 of 60 projects were enriched; 90 failed calls (enrichment of the last 23, then the dedup phase, which then hung on its interactive "New filename" prompt and was killed). Resumes with the same command answered `y` once credits are added: enriched projects are skipped, dedup/people/entities run on all 60. |
 
+### Switch to Bedrock (2026-09-23, Felipe: "si se puede usar bedrock seria aun mejor")
+
+`.env` now: `LLM_PROVIDER=bedrock`, `LLM_MODEL_NAME=openai.gpt-oss-120b-1:0`, `CHEAP_LLM_MODEL_NAME=openai.gpt-oss-20b-1:0`, `AWS_BEARER_TOKEN_BEDROCK` from Secret Manager (the key in the ingestion repo's `.env` is dead — `Authentication failed`), `AWS_REGION=us-east-1`. Probe 2026-09-23 08:50: gpt-oss-120b, gpt-oss-20b, Claude Sonnet 4.6, Claude Haiku 4.5 and Nova Pro all invoke; the provider's tool use verified live (both gpt-oss models call the `write` tool correctly, ~1 s). Consequence for the dataset report: 37 projects were enriched by gpt-5.4, the remaining 23 (and everything after) by gpt-oss-120b / 20b.
+
+| When | Step | Command | Model | Result |
+| --- | --- | --- | --- | --- |
+| 2026-09-23 08:55– | 6 resume (23 left) + phases 3–5 | `...step_6_generate_projects --max-parallelization 12 --dedup-parallelism 20`, `y` | gpt-oss-120b (enrich, dedup, people) + gpt-oss-20b (C2) | in progress |
+
 ## Part I — Arms (built 2026-09-22 while blocked on OpenAI credits; no API calls yet)
 
 | Piece | Where | State |
