@@ -299,3 +299,23 @@ def test_latency_summary_and_table(tmp_path):
     assert s["model_s"]["mean"] == 3.5 and s["tool_calls"]["p95"] == 5 and s["cost_usd"]["mean"] == 0.025
     t = stats.latency_table(["indax"], {"indax": logs})
     assert "| indax | 2 | 3.6 / 5.2 |" in t
+
+
+def test_every_tool_use_gets_a_tool_result_even_past_the_cap():
+    class TwoUses(FakeToolUseClient):
+        def _create(self, **kw):
+            self.calls.append(kw)
+            if len(self.calls) == 1:
+                return _resp([NS(type="tool_use", id="a", name="search", input={"query": "x"}),
+                              NS(type="tool_use", id="b", name="search", input={"query": "y"}),
+                              NS(type="tool_use", id="c", name="search", input={"query": "z"})], stop="tool_use")
+            return _resp([_text("done")])
+
+    client = TwoUses()
+    runner = run_arm.ArmRunner(client, arm="raw", model="claude-sonnet-4-6", prompt_version="v1",
+                               mcp_url="https://x/mcp", transport="client", max_tool_calls=2)
+    runner._mcp = FakeToolClient()
+    row, logs = runner.answer({"question_id": "q", "question": "?"}, seed=1)
+    results = client.calls[1]["messages"][2]["content"]
+    assert [r["tool_use_id"] for r in results] == ["a", "b", "c"]
+    assert results[2].get("is_error") is True and len(runner._mcp.calls) == 2

@@ -225,7 +225,11 @@ class ArmRunner:
             results = []
             for b in uses:
                 if tool_calls >= self.max_tool_calls:
-                    break
+                    # every tool_use needs a tool_result in the next turn, even the ones
+                    # the cap refuses — otherwise the API rejects the conversation
+                    results.append({"type": "tool_result", "tool_use_id": getattr(b, "id", ""),
+                                    "content": "tool-call cap reached; answer with what you have", "is_error": True})
+                    continue
                 tool_calls += 1
                 inp = getattr(b, "input", None) or {}
                 name = getattr(b, "name", "")
