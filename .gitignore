@@ -13,3 +13,6 @@ CLAUDE.md
 .claude/
 generation_cache/
 tmp_workspace/
+# MFG-Bench: the corpus lives in gs://mfg-bench-corpus, the gold in gs://mfg-bench-gold
+generated_data/sources/**/*.json
+gold/

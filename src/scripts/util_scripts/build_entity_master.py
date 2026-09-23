@@ -261,7 +261,7 @@ def gen_companies(llm: LLM, rng: random.Random) -> tuple[list[dict], list[dict]]
     )
 
     # Hard cases: near-name pairs (a distinct company whose name is close to an existing one)
-    pool = rng.sample(customers, 8) + rng.sample(suppliers, 7)
+    pool = rng.sample(customers[:100], 8) + rng.sample(suppliers[:90], 7)
     data = llm.json(
         "near_name_pairs",
         "For each company below invent ONE different, unrelated company in a different city/state whose name is "
@@ -273,7 +273,12 @@ def gen_companies(llm: LLM, rng: random.Random) -> tuple[list[dict], list[dict]]
     )
     twins = []
     for p in data.get("pairs", []):
-        orig = next((c for c in pool if c["legal_name"] == p.get("original")), None)
+        # match against every company, not only the sampled pool: the pairs are cached
+        # and the pool may be re-sampled on a rebuild
+        orig = next(
+            (c for c in customers + suppliers if c["legal_name"] == p.get("original")),
+            None,
+        )
         if not orig or slug(p.get("twin_legal_name", "")) in seen:
             continue
         seen.add(slug(p["twin_legal_name"]))
@@ -293,9 +298,13 @@ def gen_companies(llm: LLM, rng: random.Random) -> tuple[list[dict], list[dict]]
             twin["products"] = orig.get("products", "")
             customers.append(twin)
         twins.append(twin)
-    # keep counts exact: twins replace the tail of the lists
-    customers = customers[: COUNTS["customer"]]
-    suppliers = suppliers[: COUNTS["supplier"]]
+    # keep counts exact: twins replace the tail of the lists (never the originals)
+    tw_c = [t for t in twins if "industry" in t]
+    tw_s = [t for t in twins if "commodity" in t]
+    base_c = [c for c in customers if c not in tw_c]
+    base_s = [c for c in suppliers if c not in tw_s]
+    customers = base_c[: COUNTS["customer"] - len(tw_c)] + tw_c
+    suppliers = base_s[: COUNTS["supplier"] - len(tw_s)] + tw_s
     print(
         f"companies: {len(customers)} customers, {len(suppliers)} suppliers, {len(twins)} near-name twins"
     )
@@ -1063,8 +1072,11 @@ def llm_aliases(llm: LLM, ents: list[dict]) -> None:
             }
             for e in batch
         ]
+        batch_key = hashlib.sha256(
+            "|".join(e["id"] for e in batch).encode()
+        ).hexdigest()[:10]
         data = llm.json(
-            f"aliases_{i // B:03d}",
+            f"aliases_{batch_key}",
             (
                 "For each entity give informal surface forms as they would appear in company chat and email of a "
                 "packaging-machinery OEM that deals with them. For a company: 'teams' = 2 forms (initials or a short "
