@@ -483,6 +483,17 @@ _BOUNDARY = r"(?<![A-Za-z0-9])"
 _BOUNDARY_END = r"(?![A-Za-z0-9])"
 
 
+def _bounded(form: str) -> str:
+    """A regex for `form` with word boundaries only where the form itself starts or
+    ends with a letter or digit ("@precisionmach.com" may follow "ana")."""
+    pat = re.escape(form)
+    if form[:1].isalnum():
+        pat = _BOUNDARY + pat
+    if form[-1:].isalnum():
+        pat = pat + _BOUNDARY_END
+    return pat
+
+
 def scan_mentions(text: str, shortlist: "Shortlist") -> list[str]:
     """`ENT :: form` for every distinctive shortlist form found verbatim in `text`."""
     spans: list[tuple[int, int, str, str]] = []  # start, end, entity id, form
@@ -492,7 +503,7 @@ def scan_mentions(text: str, shortlist: "Shortlist") -> list[str]:
             nf = normalize_text(form)
             if not is_distinctive(nf):
                 continue
-            pat = _BOUNDARY + re.escape(nf) + _BOUNDARY_END
+            pat = _bounded(nf)
             for m in (
                 re.finditer(pat, text)
                 if any(c.isupper() for c in nf)
@@ -581,4 +592,39 @@ def anchors_from_project(project_json: dict[str, Any]) -> list[str]:
         i = e.get("id") if isinstance(e, dict) else e
         if isinstance(i, str) and _ENT_RE.fullmatch(i):
             out.append(i)
+    return out
+
+
+# ── whole-master scan (documents that were written without a shortlist) ─────
+_ALL_SCAN_CACHE: dict[tuple[int, str], tuple[re.Pattern, dict[str, str]]] = {}
+
+
+def _all_forms_pattern(m: Master, source: str) -> tuple[re.Pattern, dict[str, str]]:
+    key = (id(m), source)
+    if key not in _ALL_SCAN_CACHE:
+        forms: dict[str, str] = {}
+        for e in m.entities:
+            for f in surface_forms(e, source):
+                nf = normalize_text(f)
+                if is_distinctive(nf) and nf not in forms:
+                    forms[nf] = e["id"]
+        alts = sorted(forms, key=len, reverse=True)
+        pat = re.compile("(" + "|".join(_bounded(a) for a in alts) + ")")
+        _ALL_SCAN_CACHE[key] = (pat, forms)
+    return _ALL_SCAN_CACHE[key]
+
+
+def scan_all_mentions(text: str, m: Master, source: str) -> list[str]:
+    """`ENT :: form` for every distinctive form of ANY master entity found verbatim —
+    for documents generated without a shortlist (completeness clusters, misc files,
+    near-duplicates). One alternation regex, longest alternative first."""
+    pat, forms = _all_forms_pattern(m, source)
+    out: list[str] = []
+    seen: set[str] = set()
+    for mt in pat.finditer(text):
+        form = mt.group(1)
+        line = f"{forms[form]}{SEP}{form}"
+        if line not in seen:
+            seen.add(line)
+            out.append(line)
     return out

@@ -48,10 +48,52 @@ def _project_anchors() -> dict[str, list[str]]:
     return out
 
 
+def scan_unreferenced(m) -> dict[str, int]:
+    """Documents written without a shortlist (step 8 clusters, misc files, near
+    duplicates) get their mentions from a whole-master scan of distinctive forms."""
+    from src.entities.master import normalize_doc, scan_all_mentions
+    from src.paths import SOURCES_DIR
+
+    stats: dict[str, int] = defaultdict(int)
+    for root, _dirs, files in os.walk(SOURCES_DIR):
+        for fn in files:
+            if not fn.endswith(".json"):
+                continue
+            path = os.path.join(root, fn)
+            try:
+                doc = load_json_file(path)
+            except Exception:
+                continue
+            if REFS_KEY in doc or not doc.get("dataset_doc_uuid"):
+                continue
+            source = entity_source_for_path(
+                os.path.relpath(path, os.path.dirname(SOURCES_DIR))
+            )
+            normalize_doc(doc)
+            from src.entities.master import _document_text
+
+            doc[REFS_KEY] = scan_all_mentions(_document_text(doc), m, source)
+            write_json_file(path, doc)
+            stats["docs"] += 1
+            stats["mentions"] += len(doc[REFS_KEY])
+    return dict(stats)
+
+
 def main() -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--scan-unreferenced",
+        action="store_true",
+        help="also annotate documents that have no _entity_refs at all (whole-master scan)",
+    )
+    args = ap.parse_args()
     m = load_master()
     if m is None:
         raise SystemExit("entity master not found")
+    if args.scan_unreferenced:
+        print("unreferenced:", scan_unreferenced(m))
     anchors = _project_anchors()
     # every ref the model emitted, per document (the last log line per path wins)
     emitted: dict[str, list[str]] = {}

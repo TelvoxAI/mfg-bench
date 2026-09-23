@@ -51,3 +51,15 @@ def test_apply_keeps_model_refs_that_are_verbatim_falls_back_to_aliases_and_adds
     assert not any(x.startswith("ENT_000000000002") for x in refs)  # PMW never appears
     assert rep["dropped"] == 1 and rep["dropped_items"] == ["E2 :: PMW"]
     assert not any("ENT_" in v for k, v in doc.items() if k != "_entity_refs")
+
+
+def test_whole_master_scan_uses_longest_alternative_first():
+    from src.entities.master import scan_all_mentions
+
+    m = _master()
+    text = "Precision Machining Works LLC and PO-44817; ana@precisionmach.com wrote."
+    found = scan_all_mentions(text, m, "outlook")
+    assert "ENT_000000000002 :: Precision Machining Works LLC" in found
+    assert "ENT_000000000003 :: PO-44817" in found
+    assert "ENT_000000000001 :: @precisionmach.com" in found
+    assert not any(x.startswith("ENT_000000000001 :: Precision Machining Inc") for x in found)
