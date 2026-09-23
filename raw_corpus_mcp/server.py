@@ -40,6 +40,11 @@ logger = logging.getLogger("raw_corpus_mcp")
 
 MODE = os.environ.get("MODE", "keyword").lower()
 CORPUS_DIR = os.environ.get("CORPUS_DIR", "generated_data/sources")
+# SOURCES=outlook,teams restricts the server to those systems — the "number of connected
+# systems" axis of the latency curve (IND-982): claude-raw with 1, 2, … 6 sources.
+ENABLED_SOURCES: tuple[str, ...] = tuple(
+    s.strip() for s in os.environ.get("SOURCES", ",".join(SOURCES)).split(",") if s.strip()
+)
 MAX_K = 25
 MAX_READ_CHARS = int(os.environ.get("MAX_READ_CHARS", "20000"))
 
@@ -58,7 +63,7 @@ def _hit(d: Doc, score: float, query: str) -> dict[str, Any]:
 
 
 def load(corpus_dir: str = CORPUS_DIR, mode: str = MODE) -> None:
-    State.docs = load_corpus(corpus_dir)
+    State.docs = load_corpus(corpus_dir, sources=ENABLED_SOURCES)
     State.by_id = {d.doc_id: d for d in State.docs}
     if mode == "hybrid":
         vectors = VectorStore.load(os.environ["VECTORS"]) if os.environ.get("VECTORS") else None
@@ -80,7 +85,7 @@ def build_server(mode: str = MODE) -> MCPServer:
     server = MCPServer(
         name,
         instructions=(
-            "Search and read the company's documents. Sources: " + ", ".join(SOURCES) + ". "
+            "Search and read the company's documents. Sources: " + ", ".join(ENABLED_SOURCES) + ". "
             "Document ids look like dsid_…; cite them in your answer."
         ),
     )
@@ -94,8 +99,8 @@ def build_server(mode: str = MODE) -> MCPServer:
         def search(source: str, query: str, k: int = 10, date_from: str = "", date_to: str = "",
                    sender: str = "") -> dict[str, Any]:
             src = source.strip().lower()
-            if src not in SOURCES:
-                return {"error": f"unknown source {source!r}; use one of {list(SOURCES)}"}
+            if src not in ENABLED_SOURCES:
+                return {"error": f"unknown source {source!r}; use one of {list(ENABLED_SOURCES)}"}
             f = Filters(sources=[src], date_from=date_from, date_to=date_to, sender=sender)
             hits = State.keyword.search(query, max(1, min(int(k), MAX_K)), f)
             return {"source": src, "query": query, "hits": [_hit(d, s, query) for d, s in hits]}
@@ -106,7 +111,7 @@ def build_server(mode: str = MODE) -> MCPServer:
             "documents with their ids and dates."))
         def list_docs(source: str, path: str = "", limit: int = 100) -> dict[str, Any]:
             src = source.strip().lower()
-            if src not in SOURCES:
+            if src not in ENABLED_SOURCES:
                 return {"error": f"unknown source {source!r}; use one of {list_sources()}"}
             prefix = f"{src}/" + (path.strip("/") + "/" if path.strip("/") else "")
             folders: set[str] = set()
@@ -131,9 +136,9 @@ def build_server(mode: str = MODE) -> MCPServer:
             "and a date range (YYYY-MM-DD). Returns up to k hits with a snippet."))
         def search(query: str, k: int = 10, sources: list[str] | None = None, date_from: str = "",
                    date_to: str = "") -> dict[str, Any]:
-            bad = [s for s in (sources or []) if s.strip().lower() not in SOURCES]
+            bad = [s for s in (sources or []) if s.strip().lower() not in ENABLED_SOURCES]
             if bad:
-                return {"error": f"unknown sources {bad}; use {list(SOURCES)}"}
+                return {"error": f"unknown sources {bad}; use {list(ENABLED_SOURCES)}"}
             f = Filters(sources=sources, date_from=date_from, date_to=date_to)
             hits = State.hybrid.search(query, max(1, min(int(k), MAX_K)), f)
             return {"query": query, "vectors": State.hybrid.has_vectors,
@@ -154,7 +159,7 @@ def build_server(mode: str = MODE) -> MCPServer:
 
 
 def list_sources() -> list[str]:
-    return list(SOURCES)
+    return list(ENABLED_SOURCES)
 
 
 class BearerAuth(BaseHTTPMiddleware):
@@ -166,7 +171,7 @@ class BearerAuth(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/healthz":
-            return JSONResponse({"ok": True, "mode": MODE, "docs": len(State.docs)})
+            return JSONResponse({"ok": True, "mode": MODE, "docs": len(State.docs), "sources": list(ENABLED_SOURCES)})
         auth = request.headers.get("authorization", "")
         if not self.token or auth != f"Bearer {self.token}":
             return Response("unauthorized", status_code=401)
