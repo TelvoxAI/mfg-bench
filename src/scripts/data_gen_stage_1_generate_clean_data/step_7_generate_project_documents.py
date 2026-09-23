@@ -255,6 +255,19 @@ def generate_single_file(
         return (False, f"Error: {e}")
 
 
+RENDERED_SOURCE_PREFIXES = (
+    "sources/erp/",
+    "sources/hubspot/companies/",
+    "sources/hubspot/contacts/",
+    "sources/hubspot/deals/",
+)
+
+
+def is_rendered_source_path(file_path: str) -> bool:
+    """True for paths whose source is rendered from the entity master, not generated."""
+    return file_path.replace("\\", "/").startswith(RENDERED_SOURCE_PREFIXES)
+
+
 def process_project_files(
     project_name: str,
     project_json: dict,
@@ -284,6 +297,12 @@ def process_project_files(
     skipped = 0
     for file_entry in files:
         file_path = file_entry.get("path", "")
+        if is_rendered_source_path(file_path):
+            # IND-982: ERP records and HubSpot company/contact/deal records are rendered
+            # from the entity master (build_erp_records / build_hubspot_records), never
+            # written by the model — a project's plan may still list them.
+            skipped += 1
+            continue
         if default_resolver.exists(file_path):
             skipped += 1
         else:
