@@ -41,7 +41,6 @@ from src.utils import (
 )
 from src.utils.document_index import ensure_uuids_resolved
 
-
 # Environment variable to enable Onyx metadata format
 ONYX_FORMAT_ENV_VAR = "EXPORT_IN_ONYX_FORMAT"
 
@@ -109,6 +108,13 @@ def validate_document(data: dict) -> tuple[bool, str | None]:
         return False, str(e)
 
     return True, None
+
+
+def strip_internal_fields(data: dict) -> dict:
+    """Drop every key that starts with `_` (C4): `_entity_refs` and anything else the
+    generation pipeline annotated. The exported corpus must carry no entity-resolution
+    gold and no canonical id."""
+    return {k: v for k, v in data.items() if not str(k).startswith("_")}
 
 
 def convert_to_text(data: dict, include_title: bool = True) -> str:
@@ -250,7 +256,7 @@ def export_single_file(
         Tuple of (exported_path, file_metadata_or_none, error_or_none).
     """
     try:
-        data = load_json_file(file_path)
+        data = strip_internal_fields(load_json_file(file_path))
 
         is_valid, error = validate_document(data)
         if not is_valid:
