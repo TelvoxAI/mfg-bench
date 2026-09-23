@@ -409,6 +409,7 @@ def print_document_statistics() -> None:
 def generate_documents(
     project_parallelism: int = 1,
     project_file_parallelism: int = 1,
+    project_limit: int = 0,
 ) -> None:
     """
     Generate all project documents.
@@ -426,11 +427,15 @@ def generate_documents(
     company_overview = load_file(COMPANY_OVERVIEW_PATH)
 
     # Get all project JSON files
-    project_files = [
+    project_files = sorted(
         os.path.join(PROJECTS_DIR, f)
         for f in os.listdir(PROJECTS_DIR)
         if f.endswith(".json")
-    ]
+    )
+    if project_limit:
+        # Pilot runs (IND-982 Part E): only the first N projects, in name order, so the
+        # same subset is picked on every run.
+        project_files = project_files[:project_limit]
 
     if not project_files:
         print("No project files found. Run step 6 first.")
@@ -769,6 +774,12 @@ def main() -> None:
         default=20,
         help="Number of documents to label in parallel (default: 20)",
     )
+    parser.add_argument(
+        "--project-limit",
+        type=int,
+        default=0,
+        help="Only generate documents for the first N projects (pilot runs; 0 = all)",
+    )
     args = parser.parse_args()
 
     print("Step 7: Generate Project Documents")
@@ -779,6 +790,7 @@ def main() -> None:
     generate_documents(
         project_parallelism=args.project_parallelism,
         project_file_parallelism=args.project_file_parallelism,
+        project_limit=args.project_limit,
     )
 
     # Phase 2: Label documents
