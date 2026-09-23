@@ -182,6 +182,8 @@ Two findings changed the reading of the Indax column, one on each side of the fe
 | When | What | Result |
 | --- | --- | --- |
 | 2026-09-23 13:10 | `benchmark_erp --write` into staging `mfg-bench` | see `gold/scaffolding_logs/indax_erp_mapping_write.log` |
+| 2026-09-23 13:20 | Context Layer search ranks entities before facts (indax-graph-ingestion `7d47e8f`, PR #230 merged → staging rev `context-layer-staging-00179`) | verified through the MCP: `search_graph "Rutherford Hale"` → organization first (was: status claims) |
+| 2026-09-23 13:40 | **Rule: a system of record never goes through the gate** (André) — `STRUCTURED_SOURCES`, `StructuredSourceError`; benchmark HubSpot companies/contacts/deals through `mappings/hubspot.yaml` (`app.connectors.benchmark_hubspot`, PR #231) | dry run 1,244 records → 4,294 nodes / 3,538 edges, 0 errors; written to staging `mfg-bench` |
 | after | Indax arm v2 (`answer_evaluation/indax_v2/`, 4 in flight, reconnecting client), DeepSeek judge | pending |
 
 ## Costs
