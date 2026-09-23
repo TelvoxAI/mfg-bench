@@ -123,6 +123,9 @@ def main() -> None:
                 ),
                 "primary_contact": "",
                 "contact_email": "",
+                # every ERP vendor/customer master has a website field; a party on a
+                # personal mailbox has none (the graph keys organizations by domain)
+                "website": "" if a.get("domain") in ("", "gmail.com") else a.get("domain", ""),
                 **(
                     {"commodity": a.get("commodity", "")}
                     if t == "supplier"
