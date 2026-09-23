@@ -185,7 +185,14 @@ class BedrockLLM(LLMInterface):
 
         tool_calls: list[ToolCall] = []
         current: dict[str, Any] | None = None
-        resp = self.client.converse_stream(**kwargs)
+        try:
+            resp = self.client.converse_stream(**kwargs)
+        except self.client.exceptions.ValidationException as e:
+            # some models (Kimi K3) refuse `temperature`; retry once without it
+            if "temperature" not in str(e):
+                raise
+            kwargs["inferenceConfig"].pop("temperature", None)
+            resp = self.client.converse_stream(**kwargs)
         for event in resp["stream"]:
             if "contentBlockStart" in event:
                 tu = event["contentBlockStart"].get("start", {}).get("toolUse")
