@@ -484,6 +484,7 @@ def main() -> None:
                 "system": "legacy" if sd < GO_LIVE else "new_erp",
                 "status": "delivered",
                 "reference": a["so_number"],
+                "machine_job": a["machine_job"],
                 "customer_name": cform,
                 "ship_to": site["name"] if site else cform,
                 "carrier": (

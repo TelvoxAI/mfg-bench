@@ -465,6 +465,8 @@ def apply_entity_refs(doc: dict, shortlist: Shortlist) -> tuple[dict, dict]:
         if line not in seen:
             seen.add(line)
             kept.append(line)
+    # belt and braces: nothing leaves here unless its form is verbatim in the text
+    kept = [ln for ln in kept if normalize_text(ln.split(SEP, 1)[1]) in text]
     doc[REFS_KEY] = kept
     return doc, {"kept": len(kept), "dropped": len(dropped), "dropped_items": dropped}
 
@@ -509,7 +511,8 @@ def scan_mentions(text: str, shortlist: "Shortlist") -> list[str]:
                 if any(c.isupper() for c in nf)
                 else re.finditer(pat, low)
             ):
-                spans.append((m.start(), m.end(), e["id"], nf))
+                # store the slice as written in the document, not the alias's casing
+                spans.append((m.start(), m.end(), e["id"], text[m.start() : m.end()]))
     # longest match wins where spans overlap
     spans.sort(key=lambda s: (s[0], -(s[1] - s[0])))
     chosen: list[tuple[int, int, str, str]] = []

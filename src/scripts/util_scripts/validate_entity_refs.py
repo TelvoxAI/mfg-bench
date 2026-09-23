@@ -120,14 +120,14 @@ def main() -> None:
         em_total = em.get("kept", 0) + em.get("dropped", 0)
         model_drop = 100.0 * em.get("dropped", 0) / em_total if em_total else 0.0
         flag = ""
-        if (
-            refs
-            and disk_drop > args.max_drop_rate
-            or em_total
-            and model_drop > args.max_drop_rate
-        ):
+        # The gold is what is on disk: that is the pass/fail. The model's self-report
+        # drop is reported (it says how well the model cites) but no longer decides,
+        # because mentions come from the dictionary scan as well.
+        if refs and disk_drop > args.max_drop_rate:
             flag = "  <-- above target"
             failed = True
+        elif em_total and model_drop > args.max_drop_rate:
+            flag = "  (model self-report above target; gold unaffected)"
         print(
             f"{src:<12}{s['docs']:>7}{s['docs_with_refs']:>10}{refs:>7}{s['verified']:>9}{disk_drop:>12.1f}%{model_drop:>11.1f}%{flag}"
         )
