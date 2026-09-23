@@ -53,6 +53,15 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 | C6 | pending | `build_er_gold` (mentions + clusters) |
 | — | pending | `build_erp_records` / `build_hubspot_records`: structured sources rendered from the master, refs exact by construction |
 
+## Part E — Generation (pilot)
+
+| When | Step | Command | Model | Result |
+| --- | --- | --- | --- | --- |
+| 2026-09-22 20:33 | ERP render | `python -m src.scripts.util_scripts.build_erp_records` | none | 6,556 records: 227 vendors, 280 customers, 830 items, 1,500 POs, 400 SOs, 1,394 shipments, 1,925 invoices. 3 s. `validate_entity_refs`: 4.2% on-disk drop (target < 5%), 0 leaks |
+| 2026-09-22 20:33 | HubSpot render | `python -m src.scripts.util_scripts.build_hubspot_records` | none | 1,238 records: 150 companies, 488 contacts, 600 deals. 0.0% drop |
+| 2026-09-22 20:36–20:40 | 6 phase 1 project list | `...step_6_generate_projects --max-parallelization 5 --dedup-parallelism 20` (interactive, `gold/scaffolding_logs/step6_*`) | gpt-5.4 | 60 efforts in 8 areas → `generated_data/project_list.txt`. Hand-scrubbed before enrichment: "Maple Leaf Foods" → "Maplewood Foods", "CompactLogix" → "ControlCore L30", "PanelView" → "OpPanel" (real company / product names) |
+| 2026-09-22 20:42– | 6 phases 2–5 | same command, `n` to keep the list | gpt-5.4 (enrich, dedup, people) + gpt-5-mini (C2 entities) | in progress |
+
 ## Costs
 
 | Step | Model | Calls | Cost (USD) | Source |

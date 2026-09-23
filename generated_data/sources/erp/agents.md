@@ -2,7 +2,7 @@ Directory:
 sources/erp
 
 Target number of files:
-9000
+6556 (all rendered from the ERP export by build_erp_records; no further documents are generated for this source)
 
 File name format:
 One record per file named by its key: purchase_orders/PO-44817.json, sales_orders/SO-2026-0187.json, vendors/V10482.json (legacy id) or vendors/200341.json (new ERP id, records created after go-live), customers/C-0412.json (legacy) or customers/100288.json (new), items/22-4410-C.json (item number with revision), shipments/SHP-26-01193.json, invoices/INV-2026-0919.json.
