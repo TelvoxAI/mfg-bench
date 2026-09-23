@@ -60,7 +60,9 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 | 2026-09-22 20:33 | ERP render | `python -m src.scripts.util_scripts.build_erp_records` | none | 6,556 records: 227 vendors, 280 customers, 830 items, 1,500 POs, 400 SOs, 1,394 shipments, 1,925 invoices. 3 s. `validate_entity_refs`: 4.2% on-disk drop (target < 5%), 0 leaks |
 | 2026-09-22 20:33 | HubSpot render | `python -m src.scripts.util_scripts.build_hubspot_records` | none | 1,238 records: 150 companies, 488 contacts, 600 deals. 0.0% drop |
 | 2026-09-22 20:36–20:40 | 6 phase 1 project list | `...step_6_generate_projects --max-parallelization 5 --dedup-parallelism 20` (interactive, `gold/scaffolding_logs/step6_*`) | gpt-5.4 | 60 efforts in 8 areas → `generated_data/project_list.txt`. Hand-scrubbed before enrichment: "Maple Leaf Foods" → "Maplewood Foods", "CompactLogix" → "ControlCore L30", "PanelView" → "OpPanel" (real company / product names) |
-| 2026-09-22 20:42– | 6 phases 2–5 | same command, `n` to keep the list | gpt-5.4 (enrich, dedup, people) + gpt-5-mini (C2 entities) | in progress |
+| 2026-09-22 20:42–21:05 | 6 phase 2 (first attempt) | same command, `n` | gpt-5.4 | 5-way parallel enriched 5 projects in 16 min (~100 s/project effective) → restarted at 12-way. NOTE: answering `n` to "Projects already exist. Regenerate?" SKIPS enrichment and only runs dedup/people/entities; `y` resumes enrichment of the projects not yet enriched (the cached project list is reused). |
+| 2026-09-22 21:05 | 6 phases 3–5 on the 6 enriched | `n` path | gpt-5.4 + gpt-5-mini | C2 verified: 40 entities per project (customers, suppliers, people, POs, SOs, quotes, sites, parts). Finding: the planner names invented counterparties ("Harbor Peak Pharma") while C2 picks master ones → added a rename pass (cheap model maps invented → chosen, applied to name/description/file descriptions; recorded under `entity_renames`). Entities cleared on the 6 to re-run with it. |
+| 2026-09-22 21:12– | 6 phase 2 resume (54 left) + phases 3–5 | `y`, `--max-parallelization 12` | gpt-5.4 + gpt-5-mini | in progress |
 
 ## Costs
 
