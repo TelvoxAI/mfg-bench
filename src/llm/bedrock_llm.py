@@ -25,6 +25,7 @@ from src.llm.interface import LLMInterface, Message, ReasoningLevel, ToolCall
 LLM_MODEL_NAME = os.environ.get("LLM_MODEL_NAME", "openai.gpt-oss-120b-1:0")
 CHEAP_LLM_MODEL_NAME = os.environ.get("CHEAP_LLM_MODEL_NAME", "openai.gpt-oss-20b-1:0")
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+_TOOL_NAME_RE = __import__("re").compile(r"[^a-zA-Z0-9_-]")
 
 
 USAGE_LOG = os.environ.get(
@@ -96,7 +97,9 @@ class BedrockLLM(LLMInterface):
         return out
 
     @staticmethod
-    def _build_messages(messages: list[Message]) -> tuple[list[dict], list[dict]]:
+    def _build_messages(
+        messages: list[Message], with_tools: bool = True
+    ) -> tuple[list[dict], list[dict]]:
         system: list[dict] = []
         out: list[dict] = []
 
@@ -116,26 +119,41 @@ class BedrockLLM(LLMInterface):
                 if m.content:
                     push("assistant", {"text": m.content})
             elif m.role == "tool_call" and m.tool_call:
-                push(
-                    "assistant",
-                    {
-                        "toolUse": {
-                            "toolUseId": m.tool_call.call_id,
-                            "name": m.tool_call.name,
-                            "input": m.tool_call.args,
-                        }
-                    },
-                )
+                # Converse refuses toolUse blocks without a toolConfig (a later call
+                # with tools=None over a history that has them) and tool names outside
+                # [a-zA-Z0-9_-]; both are replayed as plain text instead.
+                name = _TOOL_NAME_RE.sub("_", m.tool_call.name or "tool")
+                if with_tools:
+                    push(
+                        "assistant",
+                        {
+                            "toolUse": {
+                                "toolUseId": m.tool_call.call_id,
+                                "name": name,
+                                "input": m.tool_call.args,
+                            }
+                        },
+                    )
+                else:
+                    push(
+                        "assistant",
+                        {
+                            "text": f"[called tool {name} with {json.dumps(m.tool_call.args)[:2000]}]"
+                        },
+                    )
             elif m.role == "tool_result" and m.call_id:
-                push(
-                    "user",
-                    {
-                        "toolResult": {
-                            "toolUseId": m.call_id,
-                            "content": [{"text": m.content or "(empty)"}],
-                        }
-                    },
-                )
+                if with_tools:
+                    push(
+                        "user",
+                        {
+                            "toolResult": {
+                                "toolUseId": m.call_id,
+                                "content": [{"text": m.content or "(empty)"}],
+                            }
+                        },
+                    )
+                else:
+                    push("user", {"text": f"[tool result]\n{m.content or '(empty)'}"})
         if not out and system:
             out.append({"role": "user", "content": [{"text": system[0]["text"]}]})
             system = []
@@ -151,7 +169,7 @@ class BedrockLLM(LLMInterface):
     ) -> Generator[str | ToolCall, None, None]:
         if not self.quiet:
             print("Waiting on LLM...", flush=True)
-        system, conv = self._build_messages(messages)
+        system, conv = self._build_messages(messages, with_tools=bool(self.tools))
         kwargs: dict[str, Any] = {
             "modelId": self.model,
             "messages": conv,

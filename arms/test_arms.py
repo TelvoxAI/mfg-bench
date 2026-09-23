@@ -319,3 +319,17 @@ def test_every_tool_use_gets_a_tool_result_even_past_the_cap():
     results = client.calls[1]["messages"][2]["content"]
     assert [r["tool_use_id"] for r in results] == ["a", "b", "c"]
     assert results[2].get("is_error") is True and len(runner._mcp.calls) == 2
+
+
+def test_bedrock_provider_replays_tool_history_as_text_when_no_tools_and_sanitizes_names():
+    from src.llm.bedrock_llm import BedrockLLM
+    from src.llm.interface import Message, ToolCall
+
+    msgs = [Message(role="user", content="go"),
+            Message(role="tool_call", content="", tool_call=ToolCall(name="write file!", args={"x": 1}, call_id="t0")),
+            Message(role="tool_result", content="ok", call_id="t0"), Message(role="user", content="continue")]
+    _, conv = BedrockLLM._build_messages(msgs, with_tools=False)
+    assert all("toolUse" not in b and "toolResult" not in b for m in conv for b in m["content"])
+    assert "[called tool write_file_ with" in conv[1]["content"][0]["text"]
+    _, conv = BedrockLLM._build_messages(msgs, with_tools=True)
+    assert conv[1]["content"][0]["toolUse"]["name"] == "write_file_"

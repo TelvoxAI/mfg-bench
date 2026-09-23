@@ -184,11 +184,22 @@ class ArmRunner:
 
     @property
     def mcp(self):
-        if self._mcp is None:
+        # One MCP session per worker thread: the SDK's session is not safe to share
+        # across threads (anyio cancel scopes are task-bound), and the harness runs
+        # several questions in flight. A test can still inject one client via `_mcp`.
+        if self._mcp is not None:
+            return self._mcp
+        import threading
+
+        if not hasattr(self, "_mcp_local"):
+            self._mcp_local = threading.local()
+        client = getattr(self._mcp_local, "client", None)
+        if client is None:
             from arms.mcp_client import McpToolClient
 
-            self._mcp = McpToolClient(self.mcp_url, self.mcp_token)
-        return self._mcp
+            client = McpToolClient(self.mcp_url, self.mcp_token)
+            self._mcp_local.client = client
+        return client
 
     def _create(self, kw: dict) -> Any:
         return self.client.beta.messages.create(**kw) if "betas" in kw else self.client.messages.create(**kw)
