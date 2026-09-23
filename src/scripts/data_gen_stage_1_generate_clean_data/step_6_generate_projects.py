@@ -1161,6 +1161,59 @@ def populate_project_people(max_parallelization: int = 5) -> None:
             print(f"  - {filename}: {error}")
 
 
+def attach_project_entities(max_parallelization: int = 5) -> None:
+    """Phase 5 (C2): give every project a consistent entity set from the master.
+
+    The cheap model picks the 4-8 counterparties that fit the project from a
+    popularity-weighted candidate list; their people, POs, sales orders, quotes and sites
+    are attached deterministically. Stored under `entities` in the project JSON (ids are
+    internal: step 7 strips the field before the model sees the project)."""
+    from src.entities.project_entities import attach_entities_to_project
+    from src.entities.master import load_master
+
+    print()
+    print("=" * 40)
+    print("Phase 5: Attach Project Entities")
+    print("=" * 40)
+    master = load_master()
+    if master is None:
+        print("No entity master found (ENTITY_MASTER_PATH) — skipping.")
+        return
+    pending = [
+        f
+        for f in sorted(os.listdir(PROJECTS_DIR))
+        if f.endswith(".json")
+        and not load_json_file(os.path.join(PROJECTS_DIR, f)).get("entities")
+    ]
+    if not pending:
+        print("All projects already have entities.")
+        return
+    print(f"Found {len(pending)} projects without entities.")
+    succeeded, failed = 0, []
+    with ThreadPoolExecutor(max_workers=max_parallelization) as executor:
+        futures = {
+            executor.submit(
+                attach_entities_to_project,
+                os.path.join(PROJECTS_DIR, f),
+                master,
+                max_parallelization > 1,
+            ): f
+            for f in pending
+        }
+        with tqdm(total=len(pending), desc="Attaching entities") as pbar:
+            for future in as_completed(futures):
+                f = futures[future]
+                try:
+                    n = future.result()
+                    succeeded += 1
+                    tqdm.write(f"  {f}: {n} entities")
+                except Exception as e:  # one project never sinks the phase
+                    failed.append((f, str(e)))
+                    tqdm.write(f"[FAIL] {f}: {e}")
+                pbar.update(1)
+    print(f"Complete. {succeeded} succeeded, {len(failed)} failed.")
+
+
 def _has_project_files() -> bool:
     """Check if there are any project JSON files."""
     if not os.path.exists(PROJECTS_DIR):
@@ -1225,6 +1278,10 @@ def main() -> None:
     # NOTE: This is necessary as a separate step because the step above is already quite complex
     # and the miss rate when these were combined was too high.
     populate_project_people(max_parallelization=args.max_parallelization)
+
+    # Phase 5 (C2): attach customers / suppliers / POs / SOs from the entity master so a
+    # project's documents share one consistent entity set.
+    attach_project_entities(max_parallelization=args.max_parallelization)
 
     # Update aggregate statistics
     project_count = len([f for f in os.listdir(PROJECTS_DIR) if f.endswith(".json")])
