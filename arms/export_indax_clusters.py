@@ -28,10 +28,19 @@ from collections.abc import Callable
 
 IDENTITY_KEYS = ("name", "po_number", "so_number", "quote_number", "rfq_number", "value", "email",
                  "full_name", "title", "domains", "aliases", "job", "machine_job", "number")
+# Two provenance shapes: a Message carries the dataset id in `source_ref` (the gate
+# path), a SyncEvent in `external_record_id` (the mapping path — ERP and CRM records
+# since 2026-09-23). Both are "this entity was seen in that document".
 QUERY = """
 MATCH (n)-[:MENTIONED_IN]->(m:Message)
 WHERE m.tenant_id = @tenant_id
   AND JSON_VALUE(m.properties, '$.source_ref') LIKE 'dsid_%'
+RETURN n.id AS entity, m.id AS message
+"""
+QUERY_SYNC = """
+MATCH (n)-[:MENTIONED_IN]->(m:SyncEvent)
+WHERE m.tenant_id = @tenant_id
+  AND JSON_VALUE(m.properties, '$.external_record_id') LIKE 'dsid_%'
 RETURN n.id AS entity, m.id AS message
 """
 
@@ -86,11 +95,12 @@ def fetch_mentions(run_query: Callable[[str], list[dict]]) -> dict[str, list[dic
     """dataset id → entity nodes mentioned in that document."""
     by_doc: dict[str, list[dict]] = defaultdict(list)
     seen: set[tuple[str, str]] = set()
-    for row in run_query(QUERY):
+    for row in [*run_query(QUERY), *run_query(QUERY_SYNC)]:
         ent, msg = row.get("entity"), row.get("message")
         if not isinstance(ent, dict) or not isinstance(msg, dict):
             continue
-        ref = str((msg.get("properties") or {}).get("source_ref") or "")
+        mprops = msg.get("properties") or {}
+        ref = str(mprops.get("source_ref") or mprops.get("external_record_id") or "")
         if not ref.startswith("dsid_"):
             continue
         key = (ref, ent.get("id", ""))
