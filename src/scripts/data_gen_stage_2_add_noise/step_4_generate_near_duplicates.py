@@ -374,7 +374,7 @@ def generate_new_file_contents(
 def inherit_entity_refs(old_full_path: str, new_full_path: str) -> None:
     """Copy `_entity_refs` from the original to the duplicate, keeping only the forms
     that still appear verbatim in the duplicate."""
-    from src.entities.master import REFS_KEY, SEP, _document_text
+    from src.entities.master import REFS_KEY, SEP, _document_text, normalize_text
     from src.utils.file_io import load_json_file, write_json_file
 
     try:
@@ -386,7 +386,11 @@ def inherit_entity_refs(old_full_path: str, new_full_path: str) -> None:
     if not isinstance(refs, list):
         return
     text = _document_text(new)
-    kept = [r for r in refs if SEP in str(r) and str(r).split(SEP, 1)[1] in text]
+    kept = [
+        r
+        for r in refs
+        if SEP in str(r) and normalize_text(str(r).split(SEP, 1)[1]) in text
+    ]
     new[REFS_KEY] = kept
     write_json_file(new_full_path, new)
 

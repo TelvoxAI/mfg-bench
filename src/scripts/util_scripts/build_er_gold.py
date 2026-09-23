@@ -26,7 +26,12 @@ import json
 import os
 from collections import defaultdict
 
-from src.entities.master import _document_text, load_master, refs_to_pairs
+from src.entities.master import (
+    _document_text,
+    load_master,
+    normalize_text,
+    refs_to_pairs,
+)
 from src.paths import SOURCES_DIR
 from src.utils.file_io import load_json_file
 
@@ -66,7 +71,7 @@ def main() -> None:
                 text = _document_text(doc)
                 for cid, form in pairs:
                     e = m.by_id.get(cid)
-                    if e is None or form not in text:
+                    if e is None or normalize_text(form) not in text:
                         skipped_unverified += 1
                         continue
                     mf.write(
@@ -74,7 +79,7 @@ def main() -> None:
                             {
                                 "doc_id": doc_id,
                                 "source": source,
-                                "surface_form": form,
+                                "surface_form": normalize_text(form),
                                 "canonical_id": cid,
                                 "entity_type": e["type"],
                             },

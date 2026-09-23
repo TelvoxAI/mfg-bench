@@ -29,6 +29,7 @@ from src.entities.master import (
     _document_text,
     leaks,
     load_master,
+    normalize_text,
 )
 from src.paths import SOURCES_DIR
 from src.utils.file_io import load_json_file, write_json_file
@@ -85,7 +86,7 @@ def main() -> None:
                 if known and cid not in known:
                     stats[src]["unknown_entity"] += 1
                     continue
-                if form not in text:
+                if normalize_text(form) not in text:
                     stats[src]["not_verbatim"] += 1
                     continue
                 kept.append(s)

@@ -37,18 +37,66 @@ _ENT_RE = re.compile(r"ENT_[0-9a-f]{12}")
 # How many of each type a shortlist carries, per source. Tuned to what the source's
 # agents.md says its documents talk about.
 SHORTLIST_SHAPE: dict[str, dict[str, int]] = {
-    "outlook": {"customer": 3, "supplier": 4, "external_person": 6, "purchase_order": 3, "sales_order": 2,
-                "quote": 2, "part": 4, "customer_site": 2},
-    "teams": {"customer": 3, "supplier": 4, "external_person": 2, "purchase_order": 4, "sales_order": 3,
-              "quote": 1, "part": 5, "customer_site": 2},
-    "sharepoint": {"customer": 3, "supplier": 3, "external_person": 3, "purchase_order": 2, "sales_order": 3,
-                   "quote": 3, "part": 5, "customer_site": 2},
-    "hubspot": {"customer": 4, "supplier": 0, "external_person": 6, "purchase_order": 0, "sales_order": 2,
-                "quote": 4, "part": 1, "customer_site": 3},
-    "quality": {"customer": 1, "supplier": 4, "external_person": 2, "purchase_order": 4, "sales_order": 2,
-                "quote": 0, "part": 6, "customer_site": 1},
-    "erp": {"customer": 3, "supplier": 4, "external_person": 2, "purchase_order": 4, "sales_order": 3,
-            "quote": 2, "part": 5, "customer_site": 1},
+    "outlook": {
+        "customer": 3,
+        "supplier": 4,
+        "external_person": 6,
+        "purchase_order": 3,
+        "sales_order": 2,
+        "quote": 2,
+        "part": 4,
+        "customer_site": 2,
+    },
+    "teams": {
+        "customer": 3,
+        "supplier": 4,
+        "external_person": 2,
+        "purchase_order": 4,
+        "sales_order": 3,
+        "quote": 1,
+        "part": 5,
+        "customer_site": 2,
+    },
+    "sharepoint": {
+        "customer": 3,
+        "supplier": 3,
+        "external_person": 3,
+        "purchase_order": 2,
+        "sales_order": 3,
+        "quote": 3,
+        "part": 5,
+        "customer_site": 2,
+    },
+    "hubspot": {
+        "customer": 4,
+        "supplier": 0,
+        "external_person": 6,
+        "purchase_order": 0,
+        "sales_order": 2,
+        "quote": 4,
+        "part": 1,
+        "customer_site": 3,
+    },
+    "quality": {
+        "customer": 1,
+        "supplier": 4,
+        "external_person": 2,
+        "purchase_order": 4,
+        "sales_order": 2,
+        "quote": 0,
+        "part": 6,
+        "customer_site": 1,
+    },
+    "erp": {
+        "customer": 3,
+        "supplier": 4,
+        "external_person": 2,
+        "purchase_order": 4,
+        "sales_order": 3,
+        "quote": 2,
+        "part": 5,
+        "customer_site": 1,
+    },
 }
 _DEFAULT_SHAPE = SHORTLIST_SHAPE["outlook"]
 
@@ -106,9 +154,26 @@ def _describe(e: dict, m: Master) -> str:
     a = e.get("attributes", {})
     t = e["type"]
     if t == "customer":
-        return f"customer ({a.get('industry', '')}, {a.get('hq_city', '')} {a.get('hq_state', '')}); legacy id {a.get('legacy_id')}" + (f", new ERP id {a['new_id']}" if a.get("new_id") else "") + (f"; formerly {a['former_name']} until {a['rename_effective']}" if a.get("former_name") else "")
+        return (
+            f"customer ({a.get('industry', '')}, {a.get('hq_city', '')} {a.get('hq_state', '')}); legacy id {a.get('legacy_id')}"
+            + (f", new ERP id {a['new_id']}" if a.get("new_id") else "")
+            + (
+                f"; formerly {a['former_name']} until {a['rename_effective']}"
+                if a.get("former_name")
+                else ""
+            )
+        )
     if t == "supplier":
-        return f"supplier of {a.get('commodity', '')} ({a.get('hq_city', '')} {a.get('hq_state', '')}, {a.get('size', '')}); legacy id {a.get('legacy_id')}" + (f", new ERP id {a['new_id']}" if a.get("new_id") else "") + ("; writes from gmail.com" if a.get("domain") == "gmail.com" else "") + (f"; formerly {a['former_name']} until {a['rename_effective']}" if a.get("former_name") else "")
+        return (
+            f"supplier of {a.get('commodity', '')} ({a.get('hq_city', '')} {a.get('hq_state', '')}, {a.get('size', '')}); legacy id {a.get('legacy_id')}"
+            + (f", new ERP id {a['new_id']}" if a.get("new_id") else "")
+            + ("; writes from gmail.com" if a.get("domain") == "gmail.com" else "")
+            + (
+                f"; formerly {a['former_name']} until {a['rename_effective']}"
+                if a.get("former_name")
+                else ""
+            )
+        )
     if t == "external_person":
         emp = m.by_id.get(e.get("relations", {}).get("employer", ""), {})
         s = f"{a.get('title', '')} at {emp.get('name', '?')}, {a.get('email', '')}"
@@ -157,8 +222,10 @@ class Shortlist:
             "The following real entities exist in this company's world. When your document refers to one of them, "
             "use ONLY the surface forms listed for it (pick whichever fits the sentence; you may use several). "
             "You do not have to mention all of them — mention the ones that fit the document naturally, typically "
-            "3 to 10. You may invent other minor names freely, but never one that could be confused with these. "
-            "Never write the bracketed keys (E1, E2, ...) inside the document.",
+            "3 to 10. Do NOT invent other customers, suppliers, external people, purchase orders, sales orders, "
+            "quotes, RFQs, part numbers or plants: every such reference in the document must be one of the "
+            "entities below, written with one of its surface forms (employees of our own company come from the "
+            "company context). Never write the bracketed keys (E1, E2, ...) inside the document.",
             "",
         ]
         for key, e in self.entries:
@@ -174,7 +241,12 @@ class Shortlist:
         return "\n".join(lines)
 
 
-def _pick(rng: random.Random, pool: list[dict], n: int, weights: dict[str, float] | None = None) -> list[dict]:
+def _pick(
+    rng: random.Random,
+    pool: list[dict],
+    n: int,
+    weights: dict[str, float] | None = None,
+) -> list[dict]:
     if n <= 0 or not pool:
         return []
     n = min(n, len(pool))
@@ -185,7 +257,8 @@ def _pick(rng: random.Random, pool: list[dict], n: int, weights: dict[str, float
         cw = list(w)
         for _ in range(n):
             i = rng.choices(range(len(cand)), weights=cw, k=1)[0]
-            chosen.append(cand.pop(i)); cw.pop(i)
+            chosen.append(cand.pop(i))
+            cw.pop(i)
         return chosen
     return rng.sample(pool, n)
 
@@ -200,12 +273,18 @@ def _popularity(m: Master) -> dict[str, float]:
         r = random.Random(f"popularity|{t}")
         r.shuffle(order)
         for rank, e in enumerate(order, start=1):
-            w[e["id"]] = 1.0 / (rank ** 0.8)
+            w[e["id"]] = 1.0 / (rank**0.8)
     return w
 
 
-def build_shortlist(m: Master, source: str, seed: str, *, anchors: list[str] | None = None,
-                    shape: dict[str, int] | None = None) -> Shortlist:
+def build_shortlist(
+    m: Master,
+    source: str,
+    seed: str,
+    *,
+    anchors: list[str] | None = None,
+    shape: dict[str, int] | None = None,
+) -> Shortlist:
     """A coherent 20-30 entity shortlist for one document.
 
     `anchors` are entity ids the document must be about (a project's attached entities,
@@ -229,24 +308,41 @@ def build_shortlist(m: Master, source: str, seed: str, *, anchors: list[str] | N
         for r in m.related(e):
             add(r)
     # companies first (weighted), then their people / documents so the list is coherent
-    companies = _pick(rng, m.by_type.get("customer", []), shape.get("customer", 0), pop) + \
-        _pick(rng, m.by_type.get("supplier", []), shape.get("supplier", 0), pop)
+    companies = _pick(
+        rng, m.by_type.get("customer", []), shape.get("customer", 0), pop
+    ) + _pick(rng, m.by_type.get("supplier", []), shape.get("supplier", 0), pop)
     for c in companies:
         add(c)
-    company_ids = {e["id"] for e in chosen.values() if e["type"] in ("customer", "supplier")}
+    company_ids = {
+        e["id"] for e in chosen.values() if e["type"] in ("customer", "supplier")
+    }
 
     def linked(t: str, rel: str) -> list[dict]:
-        return [e for e in m.by_type.get(t, []) if e.get("relations", {}).get(rel) in company_ids]
+        return [
+            e
+            for e in m.by_type.get(t, [])
+            if e.get("relations", {}).get(rel) in company_ids
+        ]
 
-    for t, rel in (("external_person", "employer"), ("purchase_order", "vendor"), ("sales_order", "customer"),
-                   ("quote", "customer"), ("customer_site", "customer")):
+    for t, rel in (
+        ("external_person", "employer"),
+        ("purchase_order", "vendor"),
+        ("sales_order", "customer"),
+        ("quote", "customer"),
+        ("customer_site", "customer"),
+    ):
         want = shape.get(t, 0)
         have = sum(1 for e in chosen.values() if e["type"] == t)
         for e in _pick(rng, linked(t, rel), max(0, want - have)):
             add(e)
     # parts: those on the chosen POs first, then random
-    po_parts = [m.by_id[i] for e in chosen.values() if e["type"] == "purchase_order"
-                for i in e.get("relations", {}).get("lines", []) if i in m.by_id]
+    po_parts = [
+        m.by_id[i]
+        for e in chosen.values()
+        if e["type"] == "purchase_order"
+        for i in e.get("relations", {}).get("lines", [])
+        if i in m.by_id
+    ]
     have = sum(1 for e in chosen.values() if e["type"] == "part")
     for e in po_parts[: max(0, shape.get("part", 0) - have)]:
         add(e)
@@ -257,21 +353,66 @@ def build_shortlist(m: Master, source: str, seed: str, *, anchors: list[str] | N
     return Shortlist(source, entries)
 
 
+# Models write typographic characters (non-breaking hyphen U+2011, en dash, curly quotes,
+# NBSP) where the master has ASCII. Both the stored document and the verbatim check are
+# normalised to ASCII punctuation, so "PO‑45281" and "PO-45281" are the same mention and
+# the corpus itself is clean for every downstream reader.
+_ASCII_MAP = str.maketrans(
+    {
+        "\u2010": "-",
+        "\u2011": "-",
+        "\u2012": "-",
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2212": "-",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201a": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u201e": '"',
+        "\u00a0": " ",
+        "\u202f": " ",
+        "\u2009": " ",
+        "\u2026": "...",
+    }
+)
+
+
+def normalize_text(s: str) -> str:
+    return s.translate(_ASCII_MAP)
+
+
+def normalize_doc(doc: dict) -> dict:
+    """ASCII-punctuation every string value (and list of strings) in place."""
+    for k, v in list(doc.items()):
+        if isinstance(v, str):
+            doc[k] = normalize_text(v)
+        elif isinstance(v, list):
+            doc[k] = [normalize_text(x) if isinstance(x, str) else x for x in v]
+    return doc
+
+
 def _document_text(doc: dict) -> str:
     parts = []
     for k, v in doc.items():
-        if k.startswith("_") or k in ("title_field_name", "content_field_names", "dataset_doc_uuid"):
+        if k.startswith("_") or k in (
+            "title_field_name",
+            "content_field_names",
+            "dataset_doc_uuid",
+        ):
             continue
         if isinstance(v, list):
             parts.append("\n".join(str(x) for x in v))
         else:
             parts.append(str(v))
-    return "\n".join(parts)
+    return normalize_text("\n".join(parts))
 
 
 def apply_entity_refs(doc: dict, shortlist: Shortlist) -> tuple[dict, dict]:
     """Map the model's `E<n> :: form` refs to canonical ids, keeping only refs whose form
     appears verbatim in the document. Returns (doc, report)."""
+    normalize_doc(doc)
     raw = doc.get(REFS_KEY) or []
     if not isinstance(raw, list):
         raw = [str(raw)]
@@ -283,17 +424,98 @@ def apply_entity_refs(doc: dict, shortlist: Shortlist) -> tuple[dict, dict]:
     for item in raw:
         s = str(item)
         if SEP not in s:
-            dropped.append(s); continue
+            dropped.append(s)
+            continue
         key, form = s.split(SEP, 1)
-        key, form = key.strip().strip("[]"), " ".join(form.split())
+        key, form = key.strip().strip("[]"), normalize_text(" ".join(form.split()))
         e = keys.get(key)
-        if e is None or not form or form not in text:
-            dropped.append(s); continue
+        if e is None or not form:
+            dropped.append(s)
+            continue
+        if form not in text:
+            # The model named the right entity but cited a form it did not write
+            # (it says "MidNation Controls Supply LLC", the text says "MidNation").
+            # Keep the mention with the longest of the entity's forms that IS verbatim.
+            alt = next(
+                (
+                    f
+                    for f in sorted(
+                        surface_forms(e, shortlist.source), key=len, reverse=True
+                    )
+                    if normalize_text(f) in text
+                ),
+                None,
+            )
+            if alt is None:
+                dropped.append(s)
+                continue
+            form = normalize_text(alt)
         line = f"{e['id']}{SEP}{form}"
         if line not in seen:
-            seen.add(line); kept.append(line)
+            seen.add(line)
+            kept.append(line)
+    # The model's self-report under-cites (it forgets mentions it wrote) and over-cites
+    # (it lists shortlist entities it never wrote). The gold cannot depend on either:
+    # every DISTINCTIVE surface form of a shortlist entity that appears verbatim in the
+    # text is a mention, found by dictionary matching with word boundaries and
+    # longest-match overlap resolution (so a near-name twin's shorter form inside the
+    # longer name does not count). Short, generic forms ("Marcus", "GP") are only
+    # accepted on the model's word.
+    for line in scan_mentions(text, shortlist):
+        if line not in seen:
+            seen.add(line)
+            kept.append(line)
     doc[REFS_KEY] = kept
     return doc, {"kept": len(kept), "dropped": len(dropped), "dropped_items": dropped}
+
+
+def is_distinctive(form: str) -> bool:
+    f = form.strip()
+    if any(c.isdigit() for c in f) or "@" in f:
+        return True
+    words = f.split()
+    if len(words) >= 2 and len(f) >= 10:
+        return True
+    return len(f) >= 14
+
+
+_BOUNDARY = r"(?<![A-Za-z0-9])"
+_BOUNDARY_END = r"(?![A-Za-z0-9])"
+
+
+def scan_mentions(text: str, shortlist: "Shortlist") -> list[str]:
+    """`ENT :: form` for every distinctive shortlist form found verbatim in `text`."""
+    spans: list[tuple[int, int, str, str]] = []  # start, end, entity id, form
+    low = text.lower()
+    for _key, e in shortlist.entries:
+        for form in surface_forms(e, shortlist.source):
+            nf = normalize_text(form)
+            if not is_distinctive(nf):
+                continue
+            pat = _BOUNDARY + re.escape(nf) + _BOUNDARY_END
+            for m in (
+                re.finditer(pat, text)
+                if any(c.isupper() for c in nf)
+                else re.finditer(pat, low)
+            ):
+                spans.append((m.start(), m.end(), e["id"], nf))
+    # longest match wins where spans overlap
+    spans.sort(key=lambda s: (s[0], -(s[1] - s[0])))
+    chosen: list[tuple[int, int, str, str]] = []
+    last_end = -1
+    for st, en, eid, form in spans:
+        if st < last_end:
+            continue
+        chosen.append((st, en, eid, form))
+        last_end = en
+    out: list[str] = []
+    seen: set[str] = set()
+    for _st, _en, eid, form in chosen:
+        line = f"{eid}{SEP}{form}"
+        if line not in seen:
+            seen.add(line)
+            out.append(line)
+    return out
 
 
 _LOG_LOCK = __import__("threading").Lock()
@@ -304,9 +526,15 @@ def log_entity_refs(path: str, report: dict) -> None:
     """One line per generated document: how many refs the model emitted were kept and
     how many were dropped. `validate_entity_refs` turns this into the drop rate per source
     (target < 5%)."""
-    line = json.dumps({"path": path, "source": entity_source_for_path(path),
-                       "kept": report.get("kept", 0), "dropped": report.get("dropped", 0),
-                       "dropped_items": report.get("dropped_items", [])[:10]})
+    line = json.dumps(
+        {
+            "path": path,
+            "source": entity_source_for_path(path),
+            "kept": report.get("kept", 0),
+            "dropped": report.get("dropped", 0),
+            "dropped_items": report.get("dropped_items", [])[:10],
+        }
+    )
     with _LOG_LOCK:
         os.makedirs(os.path.dirname(ENTITY_REFS_LOG), exist_ok=True)
         with open(ENTITY_REFS_LOG, "a") as f:
@@ -335,9 +563,15 @@ def entity_source_for_path(path: str) -> str:
     return parts[0] if parts else ""
 
 
-def shortlist_for_document(m: Master, file_path: str, *, anchors: list[str] | None = None,
-                           extra_seed: str = "") -> Shortlist:
-    return build_shortlist(m, entity_source_for_path(file_path), f"{file_path}|{extra_seed}", anchors=anchors)
+def shortlist_for_document(
+    m: Master, file_path: str, *, anchors: list[str] | None = None, extra_seed: str = ""
+) -> Shortlist:
+    return build_shortlist(
+        m,
+        entity_source_for_path(file_path),
+        f"{file_path}|{extra_seed}",
+        anchors=anchors,
+    )
 
 
 def anchors_from_project(project_json: dict[str, Any]) -> list[str]:
