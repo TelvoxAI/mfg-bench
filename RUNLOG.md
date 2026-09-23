@@ -74,6 +74,9 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 | results table with bootstrap 95% CI + McNemar | `arms/stats.py` | tested on synthetic results.json |
 | 20/80 dev/test split stratified by type, with hashes | `src/scripts/util_scripts/make_splits.py` | ready, waits for the question set |
 | Indax benchmark ingestion adapter (flat-file ERP/quality loader) | `indax-graph-ingestion` draft PR #230 | 6 tests; dry run needs ADC + tenant |
+| Bedrock provider for the generator (`LLM_PROVIDER=bedrock`, gpt-oss-120b / 20b defaults, Converse API + tools) | `src/llm/bedrock_llm.py` | tested with a fake stream; not yet run live (the local Bedrock key is the dead one; the valid key is in Secret Manager) |
+| Client-side tool loop for the arms (Bedrock has no MCP connector): `--client bedrock --transport client`; per-tool-call latency, per-question wall/model/tool time | `arms/run_arm.py`, `arms/mcp_client.py` | client verified live against raw-corpus-mcp (search 24 ms, read 3 ms); loop tested with fakes |
+| Latency table (p50 / p95 wall, model, tools, tool calls, cost per question) | `arms/stats.py --logs` | tested |
 
 ## Costs
 

@@ -177,3 +177,125 @@ def test_export_indax_clusters_matches_surface_forms_to_mentioned_nodes():
     assert by_cluster["n-part"] == {f"{d}::22-4410 rev C"}
     assert stats["matched"] == 4 and stats["mentions"] == 6 and stats["docs_in_graph"] == 1
     assert stats["per_type"]["external_person"]["matched"] == 0
+
+
+class FakeToolClient:
+    """Stands in for McpToolClient: two tools, deterministic results, recorded calls."""
+
+    def __init__(self):
+        self.calls = []
+
+    def tools(self):
+        return [{"name": "search", "description": "s", "input_schema": {"type": "object", "properties": {"query": {"type": "string"}}}},
+                {"name": "read", "description": "r", "input_schema": {"type": "object", "properties": {"doc_id": {"type": "string"}}}}]
+
+    def call(self, name, args):
+        self.calls.append((name, args))
+        if name == "search":
+            return json.dumps({"hits": [{"doc_id": "dsid_" + "c" * 32, "title": "PO-44817"}]}), False, 0.05
+        return "purchase_order PO-44817 promised 2026-03-20 dsid_" + "c" * 32, False, 0.02
+
+
+class FakeToolUseClient:
+    """Model that asks for search, then read, then answers (client-side loop)."""
+
+    def __init__(self, tool_turns=2):
+        self.calls = []
+        self.tool_turns = tool_turns
+        self.beta = NS(messages=NS(create=self._create))
+        self.messages = NS(create=self._create)
+
+    def _create(self, **kw):
+        self.calls.append(kw)
+        n = len(self.calls)
+        if n <= self.tool_turns and "tools" in kw:
+            name = "search" if n == 1 else "read"
+            args = {"query": "PO 44817"} if n == 1 else {"doc_id": "dsid_" + "c" * 32}
+            return _resp([NS(type="tool_use", id=f"tu{n}", name=name, input=args)], stop="tool_use")
+        return _resp([_text("Promised 2026-03-20.\n\nSources: dsid_" + "c" * 32)])
+
+
+def test_client_side_loop_runs_tools_itself_and_times_them(tmp_path):
+    client = FakeToolUseClient(tool_turns=2)
+    runner = run_arm.ArmRunner(client, arm="indax", model="us.anthropic.claude-sonnet-4-6", prompt_version="v1",
+                               mcp_url="https://x/mcp", transport="client")
+    runner._mcp = FakeToolClient()
+    row, logs = runner.answer({"question_id": "q1", "question": "When is PO 44817 due?"}, seed=1)
+    assert len(client.calls) == 3
+    first = client.calls[0]
+    assert "mcp_servers" not in first and "betas" not in first and [t["name"] for t in first["tools"]] == ["search", "read"]
+    # the tool results went back as tool_result blocks in a user turn
+    second = client.calls[1]["messages"]
+    assert second[1]["role"] == "assistant" and second[1]["content"][0]["type"] == "tool_use"
+    assert second[2]["role"] == "user" and second[2]["content"][0]["type"] == "tool_result" and second[2]["content"][0]["tool_use_id"] == "tu1"
+    assert runner._mcp.calls == [("search", {"query": "PO 44817"}), ("read", {"doc_id": "dsid_" + "c" * 32})]
+    assert row["tool_calls"] == 2 and row["document_ids"] == ["dsid_" + "c" * 32] and row["stop_reason"] == "end_turn"
+    assert "2026-03-20" in row["answer"]
+    assert logs[0]["tool_calls"][0]["name"] == "search" and logs[0]["tool_calls"][0]["latency_s"] == 0.05
+    assert logs[-1]["question_tools_s"] == pytest.approx(0.07) and "question_wall_s" in logs[-1]
+    assert logs[0]["cost_usd"] == pytest.approx(0.0045)  # Bedrock profile id priced as sonnet-4-6
+
+
+def test_client_side_loop_enforces_the_tool_cap_then_asks_for_an_answer():
+    client = FakeToolUseClient(tool_turns=10)
+    runner = run_arm.ArmRunner(client, arm="raw", model="claude-sonnet-4-6", prompt_version="v1",
+                               mcp_url="https://x/mcp", transport="client", max_tool_calls=2)
+    runner._mcp = FakeToolClient()
+    row, logs = runner.answer({"question_id": "q", "question": "?"}, seed=1)
+    assert row["tool_calls"] == 2 and row["stop_reason"] == "tool_cap"
+    assert "tools" not in client.calls[-1] and client.calls[-1]["messages"][-1]["content"].startswith("You have used every tool call")
+    assert logs[-1].get("cap_reached") is True and "2026-03-20" in row["answer"]
+
+
+def test_bedrock_provider_converts_tools_and_messages_and_streams_tool_calls():
+    from src.llm.bedrock_llm import BedrockLLM
+    from src.llm.interface import Message, ToolCall
+
+    tools = [{"type": "function", "name": "write", "description": "w", "parameters": {"type": "object", "properties": {"x": {"type": "string"}}}}]
+    events = [
+        {"contentBlockDelta": {"delta": {"text": "Hello "}}},
+        {"contentBlockStart": {"start": {"toolUse": {"toolUseId": "t1", "name": "write"}}}},
+        {"contentBlockDelta": {"delta": {"toolUse": {"input": '{"x": '}}}},
+        {"contentBlockDelta": {"delta": {"toolUse": {"input": '"1"}'}}}},
+        {"contentBlockStop": {}},
+        {"messageStop": {"stopReason": "tool_use"}},
+    ]
+
+    class _Client:
+        def __init__(self):
+            self.kw = None
+
+        def converse_stream(self, **kw):
+            self.kw = kw
+            return {"stream": iter(events)}
+
+    c = _Client()
+    llm = BedrockLLM(model="openai.gpt-oss-120b-1:0", tools=tools, quiet=True, client=c)
+    msgs = [Message(role="system", content="sys"), Message(role="user", content="hi"),
+            Message(role="tool_call", content="", tool_call=ToolCall(name="write", args={"x": "0"}, call_id="t0")),
+            Message(role="tool_result", content="ok", call_id="t0"), Message(role="user", content="go")]
+    out = list(llm.generate(msgs))
+    assert out[0] == "Hello " and isinstance(out[-1], ToolCall) and out[-1].args == {"x": "1"} and out[-1].call_id == "t1"
+    kw = c.kw
+    assert kw["modelId"] == "openai.gpt-oss-120b-1:0" and kw["system"] == [{"text": "sys"}]
+    assert kw["toolConfig"]["tools"][0]["toolSpec"]["name"] == "write"
+    assert kw["additionalModelRequestFields"] == {"reasoning_effort": "medium"}
+    roles = [m["role"] for m in kw["messages"]]
+    assert roles == ["user", "assistant", "user"]  # tool_result + the next user text merge into one user turn
+    assert kw["messages"][1]["content"][0]["toolUse"]["toolUseId"] == "t0"
+    assert kw["messages"][2]["content"][0]["toolResult"]["toolUseId"] == "t0" and kw["messages"][2]["content"][1] == {"text": "go"}
+
+
+def test_latency_summary_and_table(tmp_path):
+    from arms import stats
+
+    rows = [{"question_id": "q1", "seed": 1, "model_latency_s": 2.0, "tools_latency_s": 0.5, "tool_calls_cumulative": 2, "cost_usd": 0.01},
+            {"question_id": "q1", "seed": 1, "model_latency_s": 1.0, "tools_latency_s": 0.0, "tool_calls_cumulative": 2, "cost_usd": 0.01, "question_wall_s": 3.6},
+            {"question_id": "q2", "seed": 1, "model_latency_s": 4.0, "tools_latency_s": 1.0, "tool_calls_cumulative": 5, "cost_usd": 0.03, "question_wall_s": 5.2}]
+    (tmp_path / "log_indax_seed1.jsonl").write_text("\n".join(json.dumps(r) for r in rows))
+    logs = stats.load_logs(str(tmp_path / "log_{arm}_seed{seed}.jsonl"), "indax", 1)
+    s = stats.latency_summary(logs)
+    assert s["questions"] == 2 and s["wall_s"]["p50"] == 3.6 and s["wall_s"]["p95"] == 5.2
+    assert s["model_s"]["mean"] == 3.5 and s["tool_calls"]["p95"] == 5 and s["cost_usd"]["mean"] == 0.025
+    t = stats.latency_table(["indax"], {"indax": logs})
+    assert "| indax | 2 | 3.6 / 5.2 |" in t

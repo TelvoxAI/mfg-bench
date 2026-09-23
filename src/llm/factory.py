@@ -43,10 +43,16 @@ def get_llm(
         return AnthropicLLM(
             model=model, tools=tools, quiet=quiet, reasoning_level=reasoning_level
         )
+    elif provider == "bedrock":
+        from src.llm.bedrock_llm import BedrockLLM
+
+        return BedrockLLM(
+            model=model, tools=tools, quiet=quiet, reasoning_level=reasoning_level
+        )
     else:
         raise ValueError(
             f"Unsupported LLM provider: {provider}. "
-            "Supported providers: openai, anthropic"
+            "Supported providers: openai, anthropic, bedrock"
         )
 
 
@@ -99,8 +105,17 @@ def get_cheap_llm(
             quiet=quiet,
             reasoning_level=reasoning_level,
         )
+    elif provider == "bedrock":
+        from src.llm.bedrock_llm import CHEAP_LLM_MODEL_NAME as BEDROCK_CHEAP_MODEL, BedrockLLM
+
+        return BedrockLLM(
+            model=model or BEDROCK_CHEAP_MODEL,
+            tools=tools,
+            quiet=quiet,
+            reasoning_level=reasoning_level,
+        )
     else:
         raise ValueError(
             f"Unsupported LLM provider: {provider}. "
-            "Supported providers: openai, anthropic"
+            "Supported providers: openai, anthropic, bedrock"
         )
