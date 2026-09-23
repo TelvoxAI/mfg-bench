@@ -64,6 +64,17 @@ Interactive steps are driven with a tailed answers file as stdin (`tail -n +1 -f
 | 2026-09-22 21:05 | 6 phases 3–5 on the 6 enriched | `n` path | gpt-5.4 + gpt-5-mini | C2 verified: 40 entities per project (customers, suppliers, people, POs, SOs, quotes, sites, parts). Finding: the planner names invented counterparties ("Harbor Peak Pharma") while C2 picks master ones → added a rename pass (cheap model maps invented → chosen, applied to name/description/file descriptions; recorded under `entity_renames`). Entities cleared on the 6 to re-run with it. |
 | 2026-09-22 21:12–21:58 | 6 phase 2 resume (54 left) | `y`, `--max-parallelization 12` | gpt-5.4 | **STOPPED: OpenAI org out of credits** (`You have no credits remaining`) after 37 of 60 projects were enriched; 90 failed calls (enrichment of the last 23, then the dedup phase, which then hung on its interactive "New filename" prompt and was killed). Resumes with the same command answered `y` once credits are added: enriched projects are skipped, dedup/people/entities run on all 60. |
 
+## Part I — Arms (built 2026-09-22 while blocked on OpenAI credits; no API calls yet)
+
+| Piece | Where | State |
+| --- | --- | --- |
+| raw-corpus-mcp (keyword + hybrid, one codebase, bearer token) | `raw_corpus_mcp/`, `deploy.sh` (Cloud Run, one service per mode) | verified end to end with the MCP client over the 7,794 rendered docs; 7 tests |
+| arm runner (same harness for raw / semantic / indax / longcontext; MCP connector beta `mcp-client-2025-11-20`; pause_turn resume; 25 tool-call cap; per-call log with tokens, latency, cost, tool calls; resumable; system prompt `arms/prompts/v1.md`) | `arms/run_arm.py` | tested with a fake client; needs an Anthropic API key to run |
+| ER scoring (pairwise P/R/F1, B³, transitivity violations) | `arms/er_metrics.py` | tested; the Indax prediction export (graph node → mentions) is still to write |
+| results table with bootstrap 95% CI + McNemar | `arms/stats.py` | tested on synthetic results.json |
+| 20/80 dev/test split stratified by type, with hashes | `src/scripts/util_scripts/make_splits.py` | ready, waits for the question set |
+| Indax benchmark ingestion adapter (flat-file ERP/quality loader) | `indax-graph-ingestion` draft PR #230 | 6 tests; dry run needs ADC + tenant |
+
 ## Costs
 
 | Step | Model | Calls | Cost (USD) | Source |
