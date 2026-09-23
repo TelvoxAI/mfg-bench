@@ -16,7 +16,7 @@ import os
 import numpy as np
 
 from raw_corpus_mcp.corpus import load_corpus
-from raw_corpus_mcp.embeddings import openai_embedder
+from raw_corpus_mcp.embeddings import embedder_for
 from raw_corpus_mcp.index import VectorStore
 
 
@@ -24,7 +24,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--corpus", default="generated_data/sources")
     ap.add_argument("--out", default="gold/vectors")
-    ap.add_argument("--model", default="text-embedding-3-large")
+    ap.add_argument("--model", default="amazon.titan-embed-text-v2:0")
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
     docs = load_corpus(args.corpus)
@@ -36,8 +36,8 @@ def main() -> None:
     todo = [d for d in docs if d.doc_id not in have]
     print(f"{len(docs)} docs, {len(have)} already embedded, {len(todo)} to embed with {args.model}")
     if todo:
-        embed = openai_embedder(args.model)
-        B = 512
+        embed = embedder_for(args.model)
+        B = 64
         for i in range(0, len(todo), B):
             chunk = todo[i:i + B]
             rows.append(embed([d.text for d in chunk]))

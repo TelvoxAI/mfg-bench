@@ -64,9 +64,9 @@ def load(corpus_dir: str = CORPUS_DIR, mode: str = MODE) -> None:
         vectors = VectorStore.load(os.environ["VECTORS"]) if os.environ.get("VECTORS") else None
         embed = None
         if vectors is not None:
-            from raw_corpus_mcp.embeddings import openai_embedder
+            from raw_corpus_mcp.embeddings import embedder_for
 
-            embed = openai_embedder(os.environ.get("EMBED_MODEL", "text-embedding-3-large"))
+            embed = embedder_for(os.environ.get("EMBED_MODEL", "amazon.titan-embed-text-v2:0"))
         State.hybrid = HybridIndex(State.docs, vectors, embed)
         State.keyword = State.hybrid.keyword
         logger.info("hybrid index: %d docs, vectors=%s", len(State.docs), vectors is not None)

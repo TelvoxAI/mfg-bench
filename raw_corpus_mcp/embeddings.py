@@ -28,3 +28,37 @@ def openai_embedder(model: str = "text-embedding-3-large", batch: int = 128) -> 
         return np.asarray(out, dtype=np.float32)
 
     return embed
+
+
+def bedrock_embedder(model: str = "amazon.titan-embed-text-v2:0", dims: int = 1024) -> Embedder:
+    """Amazon Titan Text Embeddings v2 on Bedrock (bearer key from AWS_BEARER_TOKEN_BEDROCK).
+    One text per call; 1024 normalised dimensions."""
+    import json
+
+    import boto3
+
+    try:  # the bearer key lives in .env when run from the repo
+        from dotenv import load_dotenv
+
+        load_dotenv(override=False)
+    except ImportError:
+        pass
+    client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+
+    def embed(texts: list[str]) -> np.ndarray:
+        out = []
+        for t in texts:
+            body = json.dumps({"inputText": t[:8000], "dimensions": dims, "normalize": True})
+            r = client.invoke_model(modelId=model, body=body, contentType="application/json", accept="application/json")
+            out.append(json.loads(r["body"].read())["embedding"])
+        return np.asarray(out, dtype=np.float32)
+
+    return embed
+
+
+def embedder_for(model: str) -> Embedder:
+    """Pick the client by model id: `amazon.`/`cohere.` → Bedrock, else OpenAI."""
+    if model.startswith(("amazon.", "cohere.")):
+        return bedrock_embedder(model)
+    return openai_embedder(model)
+
