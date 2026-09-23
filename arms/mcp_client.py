@@ -86,12 +86,9 @@ class McpToolClient:
         """Drop the dead session and open a fresh one on the same loop."""
         self.reconnects = getattr(self, "reconnects", 0) + 1
         try:
-            if self._stack is not None:
-                try:
-                    self._run(self._stack.aclose())
-                except Exception:
-                    pass
-            self._session = None
+            # The dead stack is abandoned, not closed: its contexts were entered in the
+            # connect task, and anyio refuses to exit a cancel scope from another task.
+            self._stack, self._session = None, None
             self._run(self._connect())
             return True
         except Exception:
