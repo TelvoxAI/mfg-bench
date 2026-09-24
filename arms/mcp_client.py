@@ -49,7 +49,12 @@ class McpToolClient:
     def tools(self) -> list[dict]:
         """Tools in the Anthropic `tools` shape (name, description, input_schema)."""
         if self._tools is None:
-            res = self._run(self._session.list_tools())
+            try:
+                res = self._run(self._session.list_tools())
+            except Exception:  # a session the server no longer knows ("Session not found")
+                if not self._reconnect():
+                    raise
+                res = self._run(self._session.list_tools())
             self._tools = [{"name": t.name, "description": t.description or "",
                             "input_schema": (getattr(t, "input_schema", None) or getattr(t, "inputSchema", None) or {"type": "object", "properties": {}})}
                            for t in res.tools]
