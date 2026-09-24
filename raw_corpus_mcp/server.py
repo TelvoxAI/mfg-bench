@@ -48,6 +48,38 @@ ENABLED_SOURCES: tuple[str, ...] = tuple(
 MAX_K = 25
 MAX_READ_CHARS = int(os.environ.get("MAX_READ_CHARS", "20000"))
 
+# Emulated connector latency (IND-982, André 2026-09-23). The local index answers in
+# 0.1 s; a real "connect your apps to Claude" call goes to Microsoft Graph, SharePoint
+# search or the HubSpot API and takes 0.5–2 s per request, per system. To measure the
+# latency-vs-connected-systems curve honestly the raw arm can sleep that much per call:
+#   SOURCE_LATENCY_MS=outlook:900,teams:800,sharepoint:1200,hubspot:600,erp:500,quality:500
+#   SEARCH_LATENCY_MS=400        (one hosted index: the semantic arm's single search call)
+# Both are OFF unless set, reported by /healthz, and must be declared in the report as
+# an emulation — never presented as measured API latency.
+def _parse_latency(spec: str) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for part in (spec or "").split(","):
+        if ":" in part:
+            src, ms = part.split(":", 1)
+            try:
+                out[src.strip().lower()] = max(0, int(ms))
+            except ValueError:
+                continue
+    return out
+
+
+SOURCE_LATENCY_MS: dict[str, int] = _parse_latency(os.environ.get("SOURCE_LATENCY_MS", ""))
+SEARCH_LATENCY_MS = int(os.environ.get("SEARCH_LATENCY_MS", "0") or 0)
+
+
+def _emulate(source: str | None = None) -> None:
+    """Sleep the declared latency of one call to `source` (or of the shared index)."""
+    import time
+
+    ms = SOURCE_LATENCY_MS.get((source or "").lower(), 0) if source else SEARCH_LATENCY_MS
+    if ms:
+        time.sleep(ms / 1000.0)
+
 
 class State:
     docs: list[Doc] = []
@@ -102,6 +134,7 @@ def build_server(mode: str = MODE) -> MCPServer:
             if src not in ENABLED_SOURCES:
                 return {"error": f"unknown source {source!r}; use one of {list(ENABLED_SOURCES)}"}
             f = Filters(sources=[src], date_from=date_from, date_to=date_to, sender=sender)
+            _emulate(src)
             hits = State.keyword.search(query, max(1, min(int(k), MAX_K)), f)
             return {"source": src, "query": query, "hits": [_hit(d, s, query) for d, s in hits]}
 
@@ -113,6 +146,7 @@ def build_server(mode: str = MODE) -> MCPServer:
             src = source.strip().lower()
             if src not in ENABLED_SOURCES:
                 return {"error": f"unknown source {source!r}; use one of {list_sources()}"}
+            _emulate(src)
             prefix = f"{src}/" + (path.strip("/") + "/" if path.strip("/") else "")
             folders: set[str] = set()
             docs = []
@@ -140,6 +174,7 @@ def build_server(mode: str = MODE) -> MCPServer:
             if bad:
                 return {"error": f"unknown sources {bad}; use {list(ENABLED_SOURCES)}"}
             f = Filters(sources=sources, date_from=date_from, date_to=date_to)
+            _emulate()
             hits = State.hybrid.search(query, max(1, min(int(k), MAX_K)), f)
             return {"query": query, "vectors": State.hybrid.has_vectors,
                     "hits": [_hit(d, s, query) for d, s in hits]}
@@ -149,6 +184,7 @@ def build_server(mode: str = MODE) -> MCPServer:
         d = State.by_id.get(doc_id.strip())
         if d is None:
             return {"error": f"no document {doc_id!r}"}
+        _emulate(d.source)          # a full read goes to the system of record in either mode
         text = d.text
         truncated = len(text) > MAX_READ_CHARS
         return {"doc_id": d.doc_id, "source": d.source, "path": d.path, "title": d.title,
@@ -171,7 +207,9 @@ class BearerAuth(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/healthz":
-            return JSONResponse({"ok": True, "mode": MODE, "docs": len(State.docs), "sources": list(ENABLED_SOURCES)})
+            return JSONResponse({"ok": True, "mode": MODE, "docs": len(State.docs), "sources": list(ENABLED_SOURCES),
+                                 "emulated_latency_ms": {"per_source": SOURCE_LATENCY_MS,
+                                                         "search": SEARCH_LATENCY_MS}})
         auth = request.headers.get("authorization", "")
         if not self.token or auth != f"Bearer {self.token}":
             return Response("unauthorized", status_code=401)

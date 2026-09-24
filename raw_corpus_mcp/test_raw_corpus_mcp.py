@@ -140,3 +140,20 @@ def _payload(result):
         return json.loads(text)
     except json.JSONDecodeError:
         return {"error": text}
+
+
+def test_emulated_latency_is_off_by_default_parsed_from_env_and_declared(monkeypatch):
+    """IND-982 (André): the raw arm can emulate real connector latency per source; it is
+    off unless configured, and /healthz declares it so a report cannot hide it."""
+    from raw_corpus_mcp import server as srv
+
+    assert srv._parse_latency("") == {}
+    assert srv._parse_latency("outlook:900, Teams:800,bad,erp:x") == {"outlook": 900, "teams": 800}
+    slept: list[float] = []
+    monkeypatch.setattr(srv.time if hasattr(srv, "time") else __import__("time"), "sleep", lambda s: slept.append(s))
+    monkeypatch.setattr(srv, "SOURCE_LATENCY_MS", {"outlook": 900})
+    monkeypatch.setattr(srv, "SEARCH_LATENCY_MS", 400)
+    srv._emulate("outlook")
+    srv._emulate("erp")           # no entry → no sleep
+    srv._emulate()                # the shared index
+    assert slept == [0.9, 0.4]
