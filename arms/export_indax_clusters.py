@@ -26,8 +26,10 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 
-IDENTITY_KEYS = ("name", "po_number", "so_number", "quote_number", "rfq_number", "value", "email",
-                 "full_name", "title", "domains", "aliases", "job", "machine_job", "number")
+IDENTITY_KEYS = ("name", "po_number", "so_number", "quote_number", "rfq_number", "invoice_number",
+                 "tracking_number", "shipment_number", "wo_number", "value", "email", "full_name",
+                 "title", "domain", "domains", "website", "aliases", "job", "machine_job", "number",
+                 "product_key", "part_number", "item", "legacy_id", "new_id", "display_name")
 # Two provenance shapes: a Message carries the dataset id in `source_ref` (the gate
 # path), a SyncEvent in `external_record_id` (the mapping path — ERP and CRM records
 # since 2026-09-23). Both are "this entity was seen in that document".
@@ -42,6 +44,22 @@ MATCH (n)-[:MENTIONED_IN]->(m:SyncEvent)
 WHERE m.tenant_id = @tenant_id
   AND JSON_VALUE(m.properties, '$.external_record_id') LIKE 'dsid_%'
 RETURN n.id AS entity, m.id AS message
+"""
+
+QUERY_MSG_REF = """
+MATCH (m:Message)
+WHERE m.tenant_id = @tenant_id
+RETURN m.id AS id, JSON_VALUE(m.properties, '$.source_ref') AS ref
+"""
+QUERY_SYNC_REF = """
+MATCH (m:SyncEvent)
+WHERE m.tenant_id = @tenant_id
+RETURN m.id AS id, JSON_VALUE(m.properties, '$.external_record_id') AS ref
+"""
+QUERY_ENTITIES = """
+MATCH (n)-[:MENTIONED_IN]->(m)
+WHERE m.tenant_id = @tenant_id
+RETURN DISTINCT n.id AS id, n.label AS label, TO_JSON_STRING(n.properties) AS props
 """
 
 _NORM = re.compile(r"[^a-z0-9]+")
@@ -92,22 +110,40 @@ def match_score(form: str, node: dict) -> float:
 
 
 def fetch_mentions(run_query: Callable[[str], list[dict]]) -> dict[str, list[dict]]:
-    """dataset id → entity nodes mentioned in that document."""
+    """dataset id → entity nodes mentioned in that document.
+
+    The Context Layer's query endpoint returns scalars only (no node objects, no array
+    literals), so this is three whole-tenant queries: the (entity, provenance) id pairs,
+    the provenance node → dataset id, and every mentioned entity with its properties."""
+    pairs: list[tuple[str, str]] = []
+    for q in (QUERY, QUERY_SYNC):
+        for row in run_query(q):
+            ent, msg = row.get("entity"), row.get("message")
+            if isinstance(ent, str) and isinstance(msg, str):
+                pairs.append((ent, msg))
+    ref_of: dict[str, str] = {}
+    for q in (QUERY_MSG_REF, QUERY_SYNC_REF):
+        for row in run_query(q):
+            if isinstance(row.get("id"), str) and str(row.get("ref") or "").startswith("dsid_"):
+                ref_of[row["id"]] = row["ref"]
+    nodes: dict[str, dict] = {}
+    for row in run_query(QUERY_ENTITIES):
+        props = row.get("props")
+        if isinstance(props, str):
+            try:
+                props = json.loads(props)
+            except json.JSONDecodeError:
+                props = {}
+        nodes[row["id"]] = {"id": row["id"], "label": row.get("label"), "properties": props or {}}
     by_doc: dict[str, list[dict]] = defaultdict(list)
     seen: set[tuple[str, str]] = set()
-    for row in [*run_query(QUERY), *run_query(QUERY_SYNC)]:
-        ent, msg = row.get("entity"), row.get("message")
-        if not isinstance(ent, dict) or not isinstance(msg, dict):
+    for ent, msg in pairs:
+        ref = ref_of.get(msg)
+        node = nodes.get(ent)
+        if not ref or node is None or (ref, ent) in seen:
             continue
-        mprops = msg.get("properties") or {}
-        ref = str(mprops.get("source_ref") or mprops.get("external_record_id") or "")
-        if not ref.startswith("dsid_"):
-            continue
-        key = (ref, ent.get("id", ""))
-        if key in seen:
-            continue
-        seen.add(key)
-        by_doc[ref].append(ent)
+        seen.add((ref, ent))
+        by_doc[ref].append(node)
     return by_doc
 
 
