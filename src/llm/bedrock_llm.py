@@ -71,8 +71,14 @@ class BedrockLLM(LLMInterface):
         self.tools = self._convert_tools(tools) if tools else None
         self.quiet = quiet
         self.reasoning_level = reasoning_level
+        from botocore.config import Config
+
+        # reasoning models (Kimi K3) can think for minutes before the first token; the
+        # 60 s default read timeout killed step 8 of the 50-person corpus (2026-09-25)
         self.client = client or boto3.client(
-            "bedrock-runtime", region_name=region or AWS_REGION
+            "bedrock-runtime", region_name=region or AWS_REGION,
+            config=Config(read_timeout=900, connect_timeout=30,
+                          retries={"max_attempts": 6, "mode": "adaptive"}),
         )
 
     @staticmethod

@@ -136,7 +136,7 @@ def slug(s: str) -> str:
     return s
 
 
-def domain_for(name: str) -> str:
+def domain_for(name: str, n_words: int = 2) -> str:
     words = [
         w
         for w in re.sub(r"[^a-z0-9 ]", "", name.lower()).split()
@@ -158,7 +158,7 @@ def domain_for(name: str) -> str:
             "gmbh",
         }
     ]
-    return ("".join(words[:2]) or "company") + ".com"
+    return ("".join(words[:n_words]) or "company") + ".com"
 
 
 # ── LLM helpers (cached) ────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ def gen_companies(llm: LLM, rng: random.Random) -> tuple[list[dict], list[dict]]
             c["commodity"] = commodity
         suppliers += batch
     suppliers = suppliers[: COUNTS["supplier"]]
-    assert len(customers) >= 140 and len(suppliers) >= 110, (
+    assert len(customers) >= 0.93 * COUNTS["customer"] and len(suppliers) >= 0.9 * COUNTS["supplier"], (
         len(customers),
         len(suppliers),
     )
@@ -386,6 +386,7 @@ def build_company_entities(
             HARD["gmail_suppliers"],
         )
     )
+    used_domains: set[str] = set()
     for i, (kind, c) in enumerate(all_cos):
         key = c["legal_name"]
         eid = ent_id(kind, key)
@@ -396,6 +397,16 @@ def build_company_entities(
         migrated = rng.random() < 0.85  # a few never got a new id (inactive)
         is_mx = c.get("hq_state") in MX_STATES or "S.A." in key
         dom = "gmail.com" if i in gmail else domain_for(c.get("trade_name") or key)
+        # Near-name twins ("Harlan Grove Foods" / "Harlan Grove Food Company") are
+        # different companies with different websites; the first two words alone gave
+        # them one domain (the pilot had to split 11 such pairs after generation).
+        n_words = 3
+        while dom != "gmail.com" and dom in used_domains and n_words <= 6:
+            dom = domain_for(key, n_words)
+            n_words += 1
+        if dom != "gmail.com" and dom in used_domains:
+            dom = dom.removesuffix(".com") + f"{i}.com"
+        used_domains.add(dom)
         e = {
             "id": eid,
             "type": kind,
@@ -561,7 +572,7 @@ def build_people(
             seen.add(k)
             uniq.append({"first": k[0], "last": k[1]})
     uniq = uniq[: COUNTS["external_person"]]
-    assert len(uniq) >= 560, len(uniq)
+    assert len(uniq) >= 0.93 * COUNTS["external_person"], len(uniq)
     cust_titles = [
         "Plant Engineer",
         "Maintenance Manager",
@@ -672,7 +683,7 @@ def build_parts(
         for d in data.get("parts", [])[:n]:
             descs.append({"family": fam, "description": d.get("description", fam)})
     descs = descs[: COUNTS["part"]]
-    assert len(descs) >= 760, len(descs)
+    assert len(descs) >= 0.95 * COUNTS["part"], len(descs)
     fam_to_commodity = {
         "bracket": "machining",
         "guide rail": "machining",
