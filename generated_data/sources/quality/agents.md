@@ -2,7 +2,7 @@ Directory:
 sources/quality
 
 Target number of files:
-1800
+150
 
 File name format:
 ncrs/NCR-2026-0142.json and supplier_corrective_actions/SCAR-2026-031.json, numbered by year and sequence.

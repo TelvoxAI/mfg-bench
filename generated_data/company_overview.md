@@ -19,7 +19,7 @@ Brightwater operates as an engineer-to-order OEM. Most projects begin with an RF
 The business is positioned as a flexible mid-market OEM with strong aftermarket support rather than a low-cost commodity supplier.
 
 ## Who the company serves
-Brightwater serves approximately **150 active customers**, primarily in **North America**.
+Brightwater serves approximately **60 active customers**, primarily in **North America**.
 
 Primary customer segments:
 - Food manufacturers
@@ -41,7 +41,7 @@ Brightwater is best suited for customers that need:
 - Long-term service and parts support after machine delivery
 
 ## Products, surface area, and key features
-Brightwater’s core offering is **engineer-to-order packaging machinery** generally priced from **$150,000 to $2 million per machine or system**.
+Brightwater’s core offering is **engineer-to-order packaging machinery** generally priced from **$150,000 to $900,000 per machine or system; about 40 machines and retrofits a year**.
 
 ### Core product areas
 - Custom filling machines
@@ -114,7 +114,7 @@ Brightwater generates revenue from a mix of capital equipment sales and aftermar
 - **Service contracts and field service:** ~12%
 
 ### Financial scale
-- **Annual revenue:** Approximately **$120 million**
+- **Annual revenue:** Approximately **$18 million**
 
 ### Commercial characteristics
 - Large project-based revenue from new machine bookings
@@ -141,14 +141,14 @@ Brightwater primarily sells through a **direct sales team** supplemented by a li
 
 ## Team, footprint, funding history, and departments
 ### Company size
-- Approximately **350 employees**
+- Approximately **50 employees** (about 35 of them office staff with a company mailbox; the rest assemble machines on the shop floor)
 
 ### Footprint
 - **Headquarters and main plant:** Dayton, Ohio
-- **Second plant:** Queretaro, Mexico
+- **Second site:** a small sub-assembly cell in Queretaro, Mexico (about 6 people)
   - Opened two years ago
   - Still in ramp-up mode
-- **Field service coverage:** Technicians based in **six U.S. states**
+- **Field service coverage:** Four field-service technicians covering the U.S. from Dayton
 
 ### Ownership and funding history
 - Founded in **1987**

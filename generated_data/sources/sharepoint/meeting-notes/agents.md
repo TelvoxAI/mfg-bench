@@ -2,7 +2,7 @@ Directory:
 sources/sharepoint/meeting-notes
 
 Target number of files:
-1500
+200
 
 File name format:
 YYYY-MM-DD_<meeting-name>.json in the team folder (engineering, operations, sales, exec, project-reviews).

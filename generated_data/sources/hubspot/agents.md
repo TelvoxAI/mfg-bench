@@ -2,7 +2,7 @@ Directory:
 sources/hubspot
 
 Target number of files:
-3000
+400
 1,238 company, contact and deal records come from the CRM export via build_hubspot_records; the remaining ~1,760 documents are logged notes and call summaries and must ALL be written under hubspot/notes — never create company, contact or deal records.
 
 File name format:

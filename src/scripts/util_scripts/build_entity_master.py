@@ -40,22 +40,24 @@ WINDOW_END = date(2026, 9, 30)
 ERP_GO_LIVE = date(2026, 1, 4)
 
 COUNTS = {
-    "customer": 150,
-    "supplier": 120,
-    "external_person": 600,
-    "part": 800,
-    "customer_site": 200,
-    "purchase_order": 1500,
-    "sales_order": 400,
-    "quote": 600,
+    # Sized for a ~50-person engineer-to-order OEM (~$18M revenue, ~40 machines a year);
+    # the pilot corpus used a ~350-person company (150 customers, 400 sales orders).
+    "customer": 60,
+    "supplier": 80,
+    "external_person": 250,
+    "part": 500,
+    "customer_site": 80,
+    "purchase_order": 900,
+    "sales_order": 50,
+    "quote": 150,
 }
 HARD = {
-    "near_name_pairs": 15,
-    "parent_subsidiary": 10,
-    "renames": 5,
-    "supersessions": 30,
-    "people_changing_employers": 10,
-    "gmail_suppliers": 20,
+    "near_name_pairs": 10,
+    "parent_subsidiary": 6,
+    "renames": 4,
+    "supersessions": 20,
+    "people_changing_employers": 6,
+    "gmail_suppliers": 10,
     "po_revision_share": 0.40,
 }
 
@@ -162,9 +164,19 @@ def domain_for(name: str) -> str:
 # ── LLM helpers (cached) ────────────────────────────────────────────────────
 class LLM:
     def __init__(self, cache_dir: str):
-        from openai import OpenAI
+        self.bedrock = os.environ.get("LLM_PROVIDER", "").lower() == "bedrock"
+        if self.bedrock:
+            import boto3
 
-        self.client = OpenAI(api_key=os.environ["LLM_API_KEY"])
+            from botocore.config import Config
+
+            # reasoning models (Kimi K3) think for minutes on a 60-name batch
+            self.client = boto3.client("bedrock-runtime", region_name=os.environ.get("AWS_REGION", "us-east-1"),
+                                       config=Config(read_timeout=900, retries={"max_attempts": 4, "mode": "adaptive"}))
+        else:
+            from openai import OpenAI
+
+            self.client = OpenAI(api_key=os.environ["LLM_API_KEY"])
         self.main = os.environ.get("LLM_MODEL_NAME", "gpt-5.4")
         self.cheap = os.environ.get("CHEAP_LLM_MODEL_NAME", "gpt-5-mini")
         self.cache_dir = cache_dir
@@ -173,6 +185,31 @@ class LLM:
         self.tokens_in = 0
         self.tokens_out = 0
 
+    def _bedrock_json(self, model: str, prompt: str) -> Any:
+        """Converse call on Bedrock (no JSON mode there): ask for a bare JSON object and
+        parse the first {...} block, retrying twice on unparsable output."""
+        import re as _re
+
+        for _attempt in range(3):
+            resp = self.client.converse(
+                modelId=model,
+                system=[{"text": "You output only a JSON object, no prose, no code fences."}],
+                messages=[{"role": "user", "content": [{"text": prompt}]}],
+                inferenceConfig={"maxTokens": 16000},
+            )
+            self.calls += 1
+            usage = resp.get("usage") or {}
+            self.tokens_in += usage.get("inputTokens", 0)
+            self.tokens_out += usage.get("outputTokens", 0)
+            text = "".join(b.get("text", "") for b in resp["output"]["message"]["content"])
+            m = _re.search(r"\{.*\}", text, _re.DOTALL)
+            if m:
+                try:
+                    return json.loads(m.group(0))
+                except json.JSONDecodeError:
+                    continue
+        raise ValueError("no JSON object in the model's answer")
+
     def json(self, key: str, prompt: str, *, cheap: bool = False) -> Any:
         """One JSON-object completion, cached by key."""
         path = os.path.join(self.cache_dir, f"{key}.json")
@@ -180,6 +217,11 @@ class LLM:
             with open(path) as f:
                 return json.load(f)
         model = self.cheap if cheap else self.main
+        if self.bedrock:
+            data = self._bedrock_json(model, prompt)
+            with open(path, "w") as f:
+                json.dump(data, f)
+            return data
         resp = self.client.chat.completions.create(
             model=model,
             messages=[

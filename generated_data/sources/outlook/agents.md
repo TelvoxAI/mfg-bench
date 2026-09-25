@@ -2,10 +2,10 @@ Directory:
 sources/outlook
 
 Target number of files:
-27000
+24000
 
 File name format:
-One email per file, named by date and a short slug of the subject, e.g. 2026-03-04-po-44817-promised-date-slip.json. Files live in the mailbox folder of the Brightwater employee who owns that mailbox (the folder name is the employee's email local part, e.g. outlook/laura.kim/); shared/ holds the shared mailboxes (sales@, service@, parts@, rfq@, ap@brightwaterpkg.com).
+One email per file, named by date and a short slug of the subject, e.g. 2026-03-04-po-44817-promised-date-slip.json. Files live in the mailbox folder of the Brightwater employee who owns that mailbox (the folder name is the employee's email local part, e.g. outlook/npetrova/); shared/ holds the shared mailboxes (sales@, service@, parts@, rfq@, ap@brightwaterpkg.com).
 
 Content rules:
 Business email as it really looks: RFQs and quotes, PO confirmations and promised-date changes, expedite requests, ECO notifications, customer spec changes after PO, freight damage and claim disputes, shipment notices, invoice questions, service scheduling, parts orders, internal forwards with a one-line comment on top of a quoted thread. About 60% of emails involve an external party (customer, supplier, carrier); 40% are internal. Many emails are replies and carry the earlier messages quoted below a separator line, so one file can hold a whole thread. Bodies are 80-600 words, written by people, with greetings, signatures (name, title, company, phone) and occasional typos. Suppliers and customers write from their own company domains; about 20 small suppliers (job shops, a freight broker, a used-equipment dealer) write from gmail.com addresses with the company name only in the signature.

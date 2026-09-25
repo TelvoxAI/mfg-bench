@@ -2,7 +2,7 @@ Directory:
 sources/teams
 
 Target number of files:
-13200
+5000
 
 File name format:
 One conversation thread per file, named by date and a short slug of the topic, e.g. 2026-02-11-drives-backorder-job-4471.json, inside the channel folder. Channels are one level deep (no nested directories): function channels (sales, purchasing, quality, manufacturing-dayton, manufacturing-queretaro, field-service, ...), project channels (proj-erp-migration, proj-dual-source-drives, proj-queretaro-ramp, proj-aftermarket-push, proj-beverage-retrofit, proj-supplier-quality), job-escalations for machine jobs in trouble, and social channels (random, dayton-social, queretaro-social).

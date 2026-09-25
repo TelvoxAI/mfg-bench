@@ -13,168 +13,70 @@ sources/
 │   ├── deals/
 │   └── notes/
 ├── outlook/
-│   ├── aaron.cole/
-│   ├── aaron.mitchell/
-│   ├── alejandro.ramirez/
-│   ├── ana.morales/
-│   ├── andrew.keller/
-│   ├── angela.foster/
-│   ├── bethany.ross/
-│   ├── brandon.cole/
-│   ├── brian.wu/
-│   ├── carl.jennings/
-│   ├── charles.bishop/
-│   ├── chloe.nguyen/
-│   ├── colin.pierce/
-│   ├── colin.reyes/
-│   ├── dana.kim/
-│   ├── daniel.mercer/
-│   ├── denise.harper/
-│   ├── denise.riley/
-│   ├── derek.lawson/
-│   ├── derek.navarro/
-│   ├── elena.brooks/
-│   ├── emily.zhao/
-│   ├── ethan.caldwell/
-│   ├── ethan.sullivan/
-│   ├── evan.crawford/
-│   ├── evelyn.brooks/
-│   ├── farah.malik/
-│   ├── franklin.meyer/
-│   ├── gabriel.norton/
-│   ├── gabriela.ortiz/
-│   ├── gina.torres/
-│   ├── grant.phillips/
-│   ├── hannah.espinoza/
-│   ├── hannah.reese/
-│   ├── hector.alvarez/
-│   ├── hector.dunn/
-│   ├── ian.delgado/
-│   ├── irene.baxter/
-│   ├── isaac.romero/
-│   ├── janet.doyle/
-│   ├── jenna.park/
-│   ├── jordan.blake/
-│   ├── joseph.lin/
-│   ├── julia.kramer/
-│   ├── kaitlyn.reese/
-│   ├── karen.mills/
-│   ├── kevin.marsh/
-│   ├── kevin.rios/
-│   ├── laura.kim/
-│   ├── lauren.ortiz/
-│   ├── lauren.scott/
-│   ├── leah.morgan/
-│   ├── linda.chavez/
-│   ├── lisa.hart/
-│   ├── luis.herrera/
-│   ├── marcus.bennett/
-│   ├── marcus.lee/
-│   ├── mark.ellison/
-│   ├── mason.hughes/
-│   ├── mason.patel/
-│   ├── mason.reed/
-│   ├── megan.doyle/
-│   ├── mia.chen/
-│   ├── michael.donnelly/
-│   ├── monique.carter/
-│   ├── nadia.flores/
-│   ├── natalie.ross/
-│   ├── nathan.fox/
-│   ├── nicole.grant/
-│   ├── nina.shah/
-│   ├── noah.bennett/
-│   ├── noah.franklin/
-│   ├── noah.lawson/
-│   ├── olivia.chen/
-│   ├── olivia.mendez/
-│   ├── olivia.price/
-│   ├── olivia.turner/
-│   ├── owen.curtis/
-│   ├── owen.murphy/
-│   ├── patrick.odom/
-│   ├── peter.haines/
-│   ├── peter.lawson/
-│   ├── peter.novak/
-│   ├── priya.desai/
-│   ├── priya.monroe/
-│   ├── priyanka.sen/
-│   ├── quentin.blake/
-│   ├── quinn.bailey/
-│   ├── quinn.fischer/
-│   ├── rachel.singh/
-│   ├── rina.patel/
-│   ├── robert.vance/
-│   ├── rosa.bennett/
-│   ├── samuel.price/
-│   ├── seth.garner/
+│   ├── alejandro.reyes/
+│   ├── andrea.sutton/
+│   ├── bryan.halvorsen/
+│   ├── christopher.blevins/
+│   ├── cynthia.buckley/
+│   ├── daniel.whitaker/
+│   ├── david.ellison/
+│   ├── denise.whitfield/
+│   ├── emily.castellanos/
+│   ├── gregory.noland/
+│   ├── hannah.wilcox/
+│   ├── james.calloway/
+│   ├── jason.trent/
+│   ├── karen.masterson/
+│   ├── kevin.doyle/
+│   ├── linda.bergstrom/
+│   ├── lucia.fernandez/
+│   ├── marcus.delgado/
+│   ├── mei-lin.chang/
+│   ├── michelle.oconnell/
+│   ├── miguel.torres/
+│   ├── natasha.petrova/
+│   ├── nicholas.romano/
+│   ├── patricia.dunne/
+│   ├── priya.raghunathan/
+│   ├── rachel.simmons/
+│   ├── robert.ashford/
+│   ├── samuel.adeyemi/
+│   ├── sandra.pruitt/
 │   ├── shared/
-│   │   ├── accounts-payable/
-│   │   ├── parts/
-│   │   ├── rfq/
-│   │   ├── sales/
-│   │   └── service/
-│   ├── sofia.martinez/
-│   ├── stephen.may/
-│   ├── steven.pope/
-│   ├── susan.patel/
-│   ├── tara.lind/
-│   ├── teresa.alvarez/
-│   ├── teresa.nolan/
-│   ├── tessa.monroe/
-│   ├── trevor.mills/
-│   ├── tyler.greene/
-│   ├── ulysses.ford/
-│   ├── ulysses.grant/
-│   ├── umar.ali/
-│   ├── umar.benson/
-│   ├── valerie.king/
-│   ├── vanessa.kim/
-│   ├── victor.salazar/
-│   ├── walter.dean/
-│   └── xenia.lopez/
+│   ├── steven.kowalczyk/
+│   ├── thomas.reilly/
+│   ├── tyler.brennan/
+│   ├── vincent.zhao/
+│   └── william.hargrove/
 ├── quality/
-│   ├── ncrs/
-│   └── supplier_corrective_actions/
-├── sharepoint/
-│   ├── customer-specs/
-│   ├── ecos/
 │   ├── fat-reports/
-│   ├── machine-specs/
-│   ├── meeting-notes/
-│   │   ├── engineering/
-│   │   ├── exec/
-│   │   ├── operations/
-│   │   ├── project-reviews/
-│   │   └── sales/
-│   ├── procedures/
-│   ├── quotes/
-│   ├── service-reports/
+│   ├── ncr/
+│   ├── scar/
 │   └── supplier-scorecards/
+├── sharepoint/
+│   ├── aftermarket/
+│   ├── engineering/
+│   ├── finance/
+│   ├── meeting-notes/
+│   ├── operations/
+│   ├── quality/
+│   └── sales/
 └── teams/
-    ├── announcements/
+    ├── aftermarket-growth/
     ├── applications-engineering/
+    ├── beverage-retrofit-program/
     ├── controls-engineering/
-    ├── dayton-social/
+    ├── erp-migration/
     ├── field-service/
     ├── finance/
     ├── general/
-    ├── hr/
-    ├── it-helpdesk/
-    ├── job-escalations/
-    ├── logistics-and-freight/
-    ├── manufacturing-dayton/
-    ├── manufacturing-queretaro/
+    ├── manufacturing/
     ├── mechanical-engineering/
-    ├── planning-and-scheduling/
-    ├── proj-aftermarket-push/
-    ├── proj-beverage-retrofit/
-    ├── proj-dual-source-drives/
-    ├── proj-erp-migration/
-    ├── proj-queretaro-ramp/
-    ├── proj-supplier-quality/
+    ├── planning/
     ├── purchasing/
     ├── quality/
-    ├── queretaro-social/
-    ├── random/
-    └── sales/
+    ├── queretaro-operations/
+    ├── queretaro-plant-ramp/
+    ├── sales/
+    ├── servo-dual-sourcing/
+    └── supplier-quality-program/

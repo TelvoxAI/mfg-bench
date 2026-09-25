@@ -2,7 +2,7 @@ Directory:
 sources/sharepoint
 
 Target number of files:
-6000
+800
 
 File name format:
 Formal document names with a document number or date, e.g. Q-26-0412_Rev2_Case-Packer_Retrofit_Fresno.json, ECO-2026-031.json, Supplier-Scorecard-2026-Q1_V10482.json, 2026-03-12_Ops-Review.json, placed in the folder that matches the document type (quotes, customer-specs, machine-specs, ecos, supplier-scorecards, meeting-notes/<team>, procedures, service-reports, fat-reports).

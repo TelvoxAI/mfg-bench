@@ -2,7 +2,7 @@ Directory:
 sources/outlook/shared
 
 Target number of files:
-1500
+1000
 
 File name format:
 Same as outlook: date + subject slug, one email per file, in the folder of the shared mailbox it landed in (sales, service, parts, rfq, accounts-payable).
